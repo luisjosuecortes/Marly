@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react'
 import { FormularioProducto } from '../componentes/FormularioProducto/FormularioProducto'
 import { useProductos } from '../hooks/useProductos'
 import { ModalProveedores } from '../componentes/ModalProveedores'
-import { CheckCircle2, Plus, Package, Search, Building2 } from 'lucide-react'
+import { ModalHistorialEntradas } from '../componentes/ModalHistorialEntradas'
+import { ModalAjuste } from '../componentes/ModalAjuste'
+import { CheckCircle2, Plus, Package, Search, Building2, History, Filter, Edit2 } from 'lucide-react'
 import './Entradas.css'
 
 export function Entradas() {
@@ -12,6 +14,10 @@ export function Entradas() {
   const [exito, setExito] = useState(false)
   const [mensajeExito, setMensajeExito] = useState('')
   const [busqueda, setBusqueda] = useState('')
+  const [categoria, setCategoria] = useState('Todas')
+  const [talla, setTalla] = useState('Todas')
+  const [productoHistorial, setProductoHistorial] = useState<any | null>(null)
+  const [productoAEditar, setProductoAEditar] = useState<any | null>(null)
 
   const manejarGuardar = async (datos: { producto: any, entrada: any, esExistente: boolean }) => {
     if (datos.esExistente) {
@@ -31,14 +37,40 @@ export function Entradas() {
     setMostrarFormulario(false)
   }
 
+  const manejarGuardarAjuste = async (nuevoStock: number, motivo: string) => {
+    if (!productoAEditar) return
+    
+    await window.ipcRenderer.actualizarStock({
+      folio_producto: productoAEditar.folio_producto,
+      nuevo_stock: nuevoStock,
+      motivo,
+      responsable: 'Admin'
+    })
+    
+    await recargarProductos()
+    setMensajeExito('Stock ajustado correctamente.')
+    setExito(true)
+    setTimeout(() => setExito(false), 3000)
+  }
+
+  // Listas para dropdowns
+  const categorias = ['Todas', ...Array.from(new Set(productos.map(p => p.categoria)))]
+  const tallasDisponibles = ['Todas', ...Array.from(new Set(productos.flatMap(p => p.tallas_detalle ? p.tallas_detalle.map(t => t.talla) : []))).sort()]
+
   const productosFiltrados = useMemo(() => {
-    if (!busqueda.trim()) return productos
-    const termino = busqueda.trim().toLowerCase()
-    return productos.filter((producto) =>
-      producto.folio_producto.toLowerCase().includes(termino) ||
-      (producto.nombre_producto ?? '').toLowerCase().includes(termino)
-    )
-  }, [busqueda, productos])
+    return productos.filter(p => {
+      const coincideBusqueda = 
+        !busqueda.trim() ||
+        p.folio_producto.toLowerCase().includes(busqueda.trim().toLowerCase()) ||
+        (p.nombre_producto ?? '').toLowerCase().includes(busqueda.trim().toLowerCase())
+      
+      const coincideCategoria = categoria === 'Todas' || p.categoria === categoria
+      
+      const coincideTalla = talla === 'Todas' || (p.tallas_detalle && p.tallas_detalle.some(t => t.talla === talla))
+
+      return coincideBusqueda && coincideCategoria && coincideTalla
+    })
+  }, [productos, busqueda, categoria, talla])
 
   return (
     <div className={`pagina-contenido ${mostrarFormulario ? 'layout-dividido' : ''}`}>
@@ -59,24 +91,7 @@ export function Entradas() {
               <p className="etiqueta">Registro</p>
               <h1 className="tabla-titulo">Entradas de Mercancía</h1>
             </div>
-            {mostrarFormulario ? (
-              <div className="barra-busqueda">
-                <div className="input-busqueda">
-                  <Search size={16} />
-                  <input
-                    type="text"
-                    placeholder="Buscar por folio o producto..."
-                    value={busqueda}
-                    onChange={(e) => setBusqueda(e.target.value)}
-                  />
-                </div>
-                {busqueda && (
-                  <button className="btn-limpiar" onClick={() => setBusqueda('')}>
-                    Limpiar
-                  </button>
-                )}
-              </div>
-            ) : (
+            {!mostrarFormulario && (
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
                 <button
                   className="accion-secundaria"
@@ -95,6 +110,32 @@ export function Entradas() {
                 </button>
               </div>
             )}
+          </div>
+
+          <div className="filtros-container">
+            <div className="input-busqueda-inventario">
+              <Search size={18} className="icono-busqueda" />
+              <input 
+                type="text" 
+                placeholder="Buscar por folio o nombre..." 
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+              />
+            </div>
+            
+            <div className="grupo-filtro">
+              <Filter size={16} />
+              <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+                {categorias.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+
+            <div className="grupo-filtro">
+              <span className="etiqueta-filtro">Talla:</span>
+              <select value={talla} onChange={(e) => setTalla(e.target.value)}>
+                {tallasDisponibles.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
           </div>
 
           <div className="tabla-contenedor">
@@ -122,8 +163,10 @@ export function Entradas() {
                       <th>Folio</th>
                       <th>Producto</th>
                       <th>Categoría</th>
-                      <th>Stock</th>
+                      <th>Detalle Tallas</th>
+                      <th>Stock Total</th>
                       <th>Proveedor</th>
+                      <th>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -132,10 +175,44 @@ export function Entradas() {
                         <td style={{ fontFamily: 'monospace', color: '#94a3b8' }}>
                           {producto.folio_producto}
                         </td>
-                        <td>{producto.nombre_producto || '—'}</td>
+                        <td>{producto.nombre_producto || '0'}</td>
                         <td>{producto.categoria}</td>
-                        <td style={{ fontWeight: 'bold' }}>{producto.stock_actual}</td>
-                        <td style={{ color: '#cbd5e1' }}>{producto.proveedor || '—'}</td>
+                        <td style={{ color: '#e2e8f0', fontSize: '0.85rem' }}>
+                          {producto.tallas_detalle && producto.tallas_detalle.length > 0 ? (
+                            <div className="lista-tallas">
+                              {producto.tallas_detalle.map((t: any, idx: number) => (
+                                <span key={idx} className="talla-badge" title={`Talla: ${t.talla}, Cantidad: ${t.cantidad}`}>
+                                  <span className="talla-nombre">{t.talla}</span>
+                                  <span className="talla-cantidad">{t.cantidad}</span>
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ color: '#94a3b8' }}>0</span>
+                          )}
+                        </td>
+                        <td style={{ fontWeight: 'bold', color: '#e2e8f0', fontSize: '1rem' }}>
+                          {producto.stock_actual}
+                        </td>
+                        <td style={{ color: '#cbd5e1' }}>{producto.proveedor || '0'}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                            <button 
+                              className="btn-accion" 
+                              title="Ver Historial de Entradas y Precios"
+                              onClick={() => setProductoHistorial(producto)}
+                            >
+                              <History size={16} />
+                            </button>
+                            <button 
+                              className="btn-accion" 
+                              title="Ajustar Stock"
+                              onClick={() => setProductoAEditar(producto)}
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -157,6 +234,22 @@ export function Entradas() {
 
       {mostrarProveedores && (
         <ModalProveedores alCerrar={() => setMostrarProveedores(false)} />
+      )}
+
+      {productoHistorial && (
+        <ModalHistorialEntradas
+          folio={productoHistorial.folio_producto}
+          nombreProducto={productoHistorial.nombre_producto || 'Sin nombre'}
+          alCerrar={() => setProductoHistorial(null)}
+        />
+      )}
+
+      {productoAEditar && (
+        <ModalAjuste 
+          producto={productoAEditar}
+          alCerrar={() => setProductoAEditar(null)}
+          alGuardar={manejarGuardarAjuste}
+        />
       )}
     </div>
   )

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { useProductos } from '../hooks/useProductos'
 import { Package, AlertCircle, Filter, Edit2, Search, History } from 'lucide-react'
 import { ModalAjuste } from '../componentes/ModalAjuste'
-import { ModalHistorialEntradas } from '../componentes/ModalHistorialEntradas'
+import { ModalHistorialInventario } from '../componentes/ModalHistorialInventario'
 import './Inventario.css'
 
 export function Inventario() {
@@ -74,7 +74,7 @@ export function Inventario() {
       )}
 
       {productoHistorial && (
-        <ModalHistorialEntradas
+        <ModalHistorialInventario
           folio={productoHistorial.folio_producto}
           nombreProducto={productoHistorial.nombre_producto || 'Sin nombre'}
           alCerrar={() => setProductoHistorial(null)}
@@ -150,7 +150,7 @@ export function Inventario() {
                         <td style={{ fontFamily: 'monospace', color: '#94a3b8' }}>
                           {producto.folio_producto}
                         </td>
-                        <td>{producto.nombre_producto || '—'}</td>
+                        <td>{producto.nombre_producto || '0'}</td>
                         <td>{producto.categoria}</td>
                         <td>
                           <span className={`estado-badge estado-${producto.estado_producto.toLowerCase()}`}>
@@ -168,18 +168,19 @@ export function Inventario() {
                               ))}
                             </div>
                           ) : (
-                            <span style={{ color: '#94a3b8' }}>—</span>
+                            <span style={{ color: '#94a3b8' }}>0</span>
                           )}
                         </td>
                         <td style={{ fontWeight: 'bold', color: '#e2e8f0', fontSize: '1rem' }}>
                           {producto.stock_actual}
                         </td>
                         <td>
-                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center' }}>
                             <button 
                               className="btn-accion" 
-                              title="Ver Historial de Entradas y Precios"
+                              title="Ver Historial de Movimientos"
                               onClick={() => setProductoHistorial(producto)}
+                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             >
                               <History size={16} />
                             </button>
@@ -187,6 +188,7 @@ export function Inventario() {
                               className="btn-accion" 
                               title="Ajustar Stock"
                               onClick={() => setProductoAEditar(producto)}
+                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             >
                               <Edit2 size={16} />
                             </button>
