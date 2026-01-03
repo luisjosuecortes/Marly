@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Encabezado } from './componentes/Encabezado'
 import './App.css'
 
 function App() {
@@ -20,37 +21,40 @@ function App() {
   }, [])
 
   return (
-    <main className="contenedor-aplicacion">
-      <section className="panel-principal">
-        <header>
-          <p className="etiqueta">Proyecto base</p>
-          <h1>Marly escritorio</h1>
-          <p className="descripcion">
-            Punto de partida limpio para crear interfaces de escritorio con
-            Electron, React y Vite.
-          </p>
-        </header>
+    <>
+      <Encabezado />
+      <main className="contenedor-aplicacion">
+        <section className="panel-principal">
+          <header>
+            <p className="etiqueta">Proyecto base</p>
+            <h1>Marly escritorio</h1>
+            <p className="descripcion">
+              Punto de partida limpio para crear interfaces de escritorio con
+              Electron, React y Vite.
+            </p>
+          </header>
 
-        <div className="tarjeta-estado">
-          <p className="etiqueta">Proceso principal</p>
-          <p className="valor-estado">{mensajePrincipal}</p>
-        </div>
+          <div className="tarjeta-estado">
+            <p className="etiqueta">Proceso principal</p>
+            <p className="valor-estado">{mensajePrincipal}</p>
+          </div>
 
-        <div className="acciones">
-          <button
-            type="button"
-            onClick={() =>
-              establecerAccionesRegistradas((valorActual) => valorActual + 1)
-            }
-          >
-            Registrar acción
-          </button>
-          <p className="nota">
-            Acciones registradas: <strong>{accionesRegistradas}</strong>
-          </p>
-        </div>
-      </section>
-    </main>
+          <div className="acciones">
+            <button
+              type="button"
+              onClick={() =>
+                establecerAccionesRegistradas((valorActual) => valorActual + 1)
+              }
+            >
+              Registrar acción
+            </button>
+            <p className="nota">
+              Acciones registradas: <strong>{accionesRegistradas}</strong>
+            </p>
+          </div>
+        </section>
+      </main>
+    </>
   )
 }
 

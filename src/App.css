@@ -1,9 +1,12 @@
 .contenedor-aplicacion {
   min-height: 100vh;
+  padding-top: 100px; /* Espacio para el header fijo */
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 2rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
+  padding-bottom: 2rem;
 }
 
 .panel-principal {
