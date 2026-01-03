@@ -1,11 +1,10 @@
-.layout-entradas {
+.layout-ventas {
   display: flex;
   gap: 10rem;
   width: 100%;
   align-items: flex-start;
 }
 
-/* Reutilizamos clases entre Inventario y Entradas, pero añadimos variantes específicas */
 .columna-tabla {
   flex: 1.5;
   display: flex;
@@ -27,7 +26,6 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Barra de búsqueda que aparece junto al título cuando está el formulario */
 .barra-busqueda {
   display: flex;
   align-items: center;
@@ -125,6 +123,12 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
+.tabla-scroll {
+  overflow-x: auto;
+  max-height: calc(100vh - 250px);
+  overflow-y: auto;
+}
+
 .tabla-inventario {
   width: 100%;
   min-width: 600px;
@@ -134,6 +138,9 @@
 
 .tabla-inventario thead {
   background: rgba(30, 41, 59, 0.4);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .tabla-inventario th {
@@ -144,6 +151,11 @@
   letter-spacing: 0.05em;
   color: #94a3b8;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  vertical-align: middle;
+}
+
+.tabla-inventario th:last-child {
+  text-align: center;
 }
 
 .tabla-inventario td {
@@ -152,6 +164,13 @@
   font-size: 0.9rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   transition: background-color 0.2s;
+  vertical-align: middle;
+}
+
+.tabla-inventario td:last-child {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .tabla-inventario tbody tr:hover {
@@ -161,21 +180,6 @@
 .tabla-inventario tbody tr:last-child td {
   border-bottom: none;
 }
-
-.estado-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.estado-disponible { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
-.estado-agotado { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
-.estado-apartado { background: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
-.estado-prestado { background: rgba(59, 130, 246, 0.1); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.2); }
 
 .tabla-vacia {
   display: flex;
@@ -191,7 +195,7 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  background: #38bdf8;
+  background: #34d399;
   color: #0f172a;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -199,13 +203,13 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
+  box-shadow: 0 4px 12px rgba(52, 211, 153, 0.25);
 }
 
 .accion-primaria:hover {
-  background: #7dd3fc;
+  background: #6ee7b7;
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(56, 189, 248, 0.4);
+  box-shadow: 0 6px 16px rgba(52, 211, 153, 0.4);
 }
 
 .accion-secundaria {
@@ -251,112 +255,6 @@
   to { opacity: 1; transform: translateX(0); }
 }
 
-.filtros-container {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.input-busqueda-inventario {
-  flex: 1;
-  min-width: 250px;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: rgba(15, 23, 42, 0.3);
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  border-radius: 10px;
-  padding: 0.6rem 1rem;
-  transition: all 0.2s ease;
-}
-
-.input-busqueda-inventario:focus-within {
-  border-color: #38bdf8;
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
-}
-
-.input-busqueda-inventario input {
-  background: transparent;
-  border: none;
-  color: #e2e8f0;
-  flex: 1;
-  font-size: 0.95rem;
-  outline: none;
-}
-
-.input-busqueda-inventario .icono-busqueda {
-  color: #94a3b8;
-}
-
-.grupo-filtro {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: rgba(15, 23, 42, 0.3);
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  border-radius: 10px;
-  padding: 0 1rem;
-}
-
-.etiqueta-filtro {
-  font-size: 0.8rem;
-  color: #94a3b8;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.grupo-filtro select {
-  background: transparent;
-  border: none;
-  color: #e2e8f0;
-  padding: 0.6rem 0;
-  font-size: 0.9rem;
-  outline: none;
-  cursor: pointer;
-  min-width: 100px;
-}
-
-.grupo-filtro select option {
-  background-color: #0f172a;
-  color: #e2e8f0;
-}
-
-.grupo-filtro svg {
-  color: #94a3b8;
-}
-
-.lista-tallas {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.talla-badge {
-  display: inline-flex;
-  align-items: center;
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  border-radius: 6px;
-  overflow: hidden;
-  font-size: 0.75rem;
-}
-
-.talla-nombre {
-  padding: 0.2rem 0.5rem;
-  background: rgba(148, 163, 184, 0.1);
-  color: #cbd5e1;
-  font-weight: 600;
-}
-
-.talla-cantidad {
-  padding: 0.2rem 0.5rem;
-  color: #fff;
-  font-weight: 700;
-  min-width: 24px;
-  text-align: center;
-}
-
 .btn-accion {
   background: transparent;
   border: none;
@@ -376,7 +274,7 @@
 }
 
 @media (max-width: 1024px) {
-  .layout-entradas {
+  .layout-ventas {
     flex-direction: column;
     gap: 3rem;
   }
@@ -385,3 +283,4 @@
     max-width: 100%;
   }
 }
+

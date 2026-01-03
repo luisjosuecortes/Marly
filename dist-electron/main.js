@@ -124,10 +124,162 @@ ipcMain.handle("get-historial-entradas", (_event, folio) => {
     return [];
   }
 });
+ipcMain.handle("get-historial-ventas", (_event, folio) => {
+  try {
+    const ventas = db.prepare(`
+      SELECT 
+        v.id_venta,
+        v.fecha_venta,
+        v.cantidad_vendida,
+        v.talla,
+        v.precio_unitario_real,
+        v.descuento_aplicado,
+        v.tipo_salida,
+        v.id_cliente,
+        v.responsable_caja,
+        v.notas,
+        c.nombre_completo as nombre_cliente
+      FROM ventas v
+      LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
+      WHERE v.folio_producto = ?
+      ORDER BY v.fecha_venta DESC, v.id_venta DESC
+    `).all(folio);
+    return ventas.map((venta) => {
+      let montoVendido = 0;
+      const montoTotal = venta.precio_unitario_real * venta.cantidad_vendida - (venta.descuento_aplicado || 0);
+      if (venta.tipo_salida === "Venta" || venta.tipo_salida === "Prestado") {
+        montoVendido = montoTotal;
+      } else if (venta.tipo_salida === "Crédito" || venta.tipo_salida === "Apartado") {
+        if (venta.id_cliente) {
+          const abonos = db.prepare(`
+            SELECT COALESCE(SUM(monto), 0) as total_abonado
+            FROM movimientos_cliente
+            WHERE id_cliente = ?
+              AND tipo_movimiento = 'abono'
+              AND (referencia LIKE ? OR referencia LIKE ?)
+          `).get(
+            venta.id_cliente,
+            `%Venta #${venta.id_venta}%`,
+            `Abono inicial - Venta #${venta.id_venta}%`
+          );
+          montoVendido = (abonos == null ? void 0 : abonos.total_abonado) || 0;
+        } else {
+          montoVendido = 0;
+        }
+      }
+      return {
+        ...venta,
+        monto_total: montoTotal,
+        monto_vendido: montoVendido,
+        saldo_pendiente: montoTotal - montoVendido
+      };
+    });
+  } catch (error) {
+    console.error("Error al obtener historial de ventas:", error);
+    return [];
+  }
+});
+ipcMain.handle("get-historial-movimientos", (_event, folio) => {
+  try {
+    const entradas = db.prepare(`
+      SELECT 
+        'entrada' as tipo,
+        id_entrada as id,
+        fecha_entrada as fecha,
+        cantidad_recibida as cantidad,
+        talla,
+        costo_unitario_proveedor as costo_unitario,
+        precio_unitario_base as precio_unitario,
+        tipo_movimiento,
+        responsable_recepcion as responsable,
+        NULL as cliente
+      FROM entradas
+      WHERE folio_producto = ?
+    `).all(folio);
+    const ventasRaw = db.prepare(`
+      SELECT 
+        'venta' as tipo,
+        v.id_venta as id,
+        v.fecha_venta as fecha,
+        v.cantidad_vendida as cantidad,
+        v.talla,
+        NULL as costo_unitario,
+        v.precio_unitario_real,
+        v.descuento_aplicado,
+        v.tipo_salida as tipo_movimiento,
+        v.responsable_caja as responsable,
+        v.id_cliente,
+        c.nombre_completo as cliente
+      FROM ventas v
+      LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
+      WHERE v.folio_producto = ?
+    `).all(folio);
+    const ventas = ventasRaw.map((venta) => {
+      let montoVendido = 0;
+      const montoTotal = venta.precio_unitario_real * venta.cantidad - (venta.descuento_aplicado || 0);
+      if (venta.tipo_movimiento === "Venta" || venta.tipo_movimiento === "Prestado") {
+        montoVendido = montoTotal;
+      } else if (venta.tipo_movimiento === "Crédito" || venta.tipo_movimiento === "Apartado") {
+        if (venta.id_cliente) {
+          const abonos = db.prepare(`
+            SELECT COALESCE(SUM(monto), 0) as total_abonado
+            FROM movimientos_cliente
+            WHERE id_cliente = ?
+              AND tipo_movimiento = 'abono'
+              AND (referencia LIKE ? OR referencia LIKE ?)
+          `).get(
+            venta.id_cliente,
+            `%Venta #${venta.id}%`,
+            `Abono inicial - Venta #${venta.id}%`
+          );
+          montoVendido = (abonos == null ? void 0 : abonos.total_abonado) || 0;
+        } else {
+          montoVendido = 0;
+        }
+      }
+      return {
+        tipo: venta.tipo,
+        id: venta.id,
+        fecha: venta.fecha,
+        cantidad: venta.cantidad,
+        talla: venta.talla,
+        costo_unitario: null,
+        precio_unitario: montoVendido,
+        // Mostrar monto vendido en lugar de precio unitario
+        tipo_movimiento: venta.tipo_movimiento,
+        responsable: venta.responsable,
+        cliente: venta.cliente
+      };
+    });
+    const movimientos = [...entradas, ...ventas].sort((a, b) => {
+      const fechaA = new Date(a.fecha).getTime();
+      const fechaB = new Date(b.fecha).getTime();
+      if (fechaB !== fechaA) return fechaB - fechaA;
+      return b.id - a.id;
+    });
+    return movimientos;
+  } catch (error) {
+    console.error("Error al obtener historial de movimientos:", error);
+    return [];
+  }
+});
 ipcMain.handle("get-producto-detalle", (_event, folio) => {
   try {
-    const producto = db.prepare("SELECT * FROM productos WHERE folio_producto = ?").get(folio);
-    return producto || null;
+    const stmt = db.prepare(`
+      SELECT 
+        p.*, 
+        json_group_array(json_object('talla', tp.talla, 'cantidad', tp.cantidad)) as tallas_detalle
+      FROM productos p
+      LEFT JOIN tallas_producto tp ON p.folio_producto = tp.folio_producto
+      WHERE p.folio_producto = ?
+      GROUP BY p.folio_producto
+    `);
+    const producto = stmt.get(folio);
+    if (!producto) return null;
+    return {
+      ...producto,
+      tallas_detalle: producto.tallas_detalle ? JSON.parse(producto.tallas_detalle) : []
+    };
   } catch (error) {
     console.error("Error al buscar producto:", error);
     return null;
@@ -146,6 +298,32 @@ ipcMain.handle("get-ultima-entrada", (_event, folio) => {
   } catch (error) {
     console.error("Error al obtener última entrada:", error);
     return null;
+  }
+});
+ipcMain.handle("get-precio-venta", (_event, datos) => {
+  const { folio_producto, talla } = datos;
+  try {
+    const entradaTalla = db.prepare(`
+      SELECT precio_unitario_base
+      FROM entradas
+      WHERE folio_producto = ? AND talla = ?
+      ORDER BY fecha_entrada DESC, id_entrada DESC
+      LIMIT 1
+    `).get(folio_producto, talla);
+    if (entradaTalla) {
+      return { precio_unitario_base: entradaTalla.precio_unitario_base };
+    }
+    const entradaGeneral = db.prepare(`
+      SELECT precio_unitario_base
+      FROM entradas
+      WHERE folio_producto = ?
+      ORDER BY fecha_entrada DESC, id_entrada DESC
+      LIMIT 1
+    `).get(folio_producto);
+    return entradaGeneral || { precio_unitario_base: 0 };
+  } catch (error) {
+    console.error("Error al obtener precio de venta:", error);
+    return { precio_unitario_base: 0 };
   }
 });
 ipcMain.handle("registrar-nuevo-producto", (_event, datos) => {
@@ -310,6 +488,656 @@ ipcMain.handle("eliminar-entrada", (_event, id_entrada) => {
     return { success: true };
   } catch (error) {
     console.error("Error al eliminar entrada:", error);
+    throw error;
+  }
+});
+ipcMain.handle("get-clientes", () => {
+  try {
+    const stmt = db.prepare(`
+      SELECT 
+        id_cliente,
+        nombre_completo,
+        telefono,
+        saldo_pendiente,
+        estado_cuenta
+      FROM clientes
+      ORDER BY nombre_completo ASC
+    `);
+    return stmt.all();
+  } catch (error) {
+    console.error("Error al obtener clientes:", error);
+    return [];
+  }
+});
+ipcMain.handle("agregar-cliente", (_event, datos) => {
+  const { nombre_completo, telefono, saldo_pendiente } = datos;
+  const agregar = db.transaction(() => {
+    const stmt = db.prepare(`
+      INSERT INTO clientes (nombre_completo, telefono, saldo_pendiente, estado_cuenta)
+      VALUES (@nombre_completo, @telefono, @saldo_pendiente, 
+              CASE WHEN @saldo_pendiente > 0 THEN 'Con saldo' ELSE 'Al corriente' END)
+    `);
+    const resultado = stmt.run({
+      nombre_completo: nombre_completo.trim(),
+      telefono: telefono || null,
+      saldo_pendiente: saldo_pendiente || 0
+    });
+    if (saldo_pendiente && saldo_pendiente > 0) {
+      const idCliente = Number(resultado.lastInsertRowid);
+      db.prepare(`
+        INSERT INTO movimientos_cliente (id_cliente, fecha, tipo_movimiento, monto, referencia, responsable)
+        VALUES (@id_cliente, CURRENT_TIMESTAMP, 'cargo', @monto, 'Saldo inicial', 'Sistema')
+      `).run({
+        id_cliente: idCliente,
+        monto: saldo_pendiente
+      });
+    }
+  });
+  try {
+    agregar();
+    return { success: true };
+  } catch (error) {
+    console.error("Error al agregar cliente:", error);
+    if (error.code === "SQLITE_CONSTRAINT") {
+      throw new Error("Ya existe un cliente con ese nombre.");
+    }
+    throw error;
+  }
+});
+ipcMain.handle("eliminar-cliente", (_event, id_cliente) => {
+  try {
+    const cliente = db.prepare("SELECT saldo_pendiente FROM clientes WHERE id_cliente = ?").get(id_cliente);
+    if (!cliente) {
+      throw new Error("Cliente no encontrado.");
+    }
+    if (cliente.saldo_pendiente > 0) {
+      throw new Error("No se puede eliminar un cliente con saldo pendiente.");
+    }
+    db.prepare("DELETE FROM clientes WHERE id_cliente = ?").run(id_cliente);
+    return { success: true };
+  } catch (error) {
+    console.error("Error al eliminar cliente:", error);
+    throw error;
+  }
+});
+ipcMain.handle("get-historial-cliente", (_event, id_cliente) => {
+  try {
+    const cliente = db.prepare("SELECT saldo_pendiente FROM clientes WHERE id_cliente = ?").get(id_cliente);
+    if (!cliente) {
+      throw new Error("Cliente no encontrado.");
+    }
+    const stmt = db.prepare(`
+      SELECT 
+        id_movimiento,
+        fecha,
+        tipo_movimiento,
+        monto,
+        referencia,
+        responsable
+      FROM movimientos_cliente
+      WHERE id_cliente = ?
+      ORDER BY fecha DESC, id_movimiento DESC
+    `);
+    const movimientos = stmt.all(id_cliente);
+    return {
+      movimientos,
+      saldoActual: cliente.saldo_pendiente
+    };
+  } catch (error) {
+    console.error("Error al obtener historial del cliente:", error);
+    throw error;
+  }
+});
+ipcMain.handle("get-productos-pendientes-cliente", (_event, id_cliente) => {
+  try {
+    const ventas = db.prepare(`
+      SELECT DISTINCT
+        v.id_venta,
+        v.fecha_venta,
+        v.folio_producto,
+        v.cantidad_vendida,
+        v.talla,
+        v.precio_unitario_real,
+        v.descuento_aplicado,
+        v.tipo_salida,
+        v.notas,
+        p.nombre_producto,
+        p.estado_producto,
+        (v.precio_unitario_real * v.cantidad_vendida - COALESCE(v.descuento_aplicado, 0)) as monto_total
+      FROM ventas v
+      INNER JOIN productos p ON v.folio_producto = p.folio_producto
+      WHERE v.id_cliente = ? 
+        AND v.tipo_salida IN ('Crédito', 'Apartado', 'Prestado')
+      ORDER BY v.fecha_venta DESC
+    `).all(id_cliente);
+    return ventas.map((venta) => {
+      let montoAbonado = 0;
+      const montoTotal = venta.monto_total;
+      const abonos = db.prepare(`
+          SELECT COALESCE(SUM(monto), 0) as total_abonado
+          FROM movimientos_cliente
+          WHERE id_cliente = ?
+            AND tipo_movimiento = 'abono'
+            AND (referencia LIKE ? OR referencia LIKE ?)
+        `).get(
+        id_cliente,
+        `%Venta #${venta.id_venta}%`,
+        `Abono inicial - Venta #${venta.id_venta}%`
+      );
+      montoAbonado = (abonos == null ? void 0 : abonos.total_abonado) || 0;
+      const montoFaltante = montoTotal - montoAbonado;
+      return {
+        ...venta,
+        monto_abonado: montoAbonado,
+        monto_faltante: montoFaltante
+      };
+    }).filter((venta) => venta.monto_faltante > 0);
+  } catch (error) {
+    console.error("Error al obtener productos pendientes:", error);
+    return [];
+  }
+});
+ipcMain.handle("registrar-abono-cliente", (_event, datos) => {
+  const { id_cliente, monto, id_venta, responsable, notas } = datos;
+  const procesar = db.transaction(() => {
+    const cliente = db.prepare("SELECT saldo_pendiente FROM clientes WHERE id_cliente = ?").get(id_cliente);
+    if (!cliente) {
+      throw new Error("Cliente no encontrado.");
+    }
+    if (monto <= 0) {
+      throw new Error("El monto del abono debe ser mayor a 0.");
+    }
+    if (id_venta) {
+      const venta = db.prepare(`
+        SELECT 
+          (v.precio_unitario_real * v.cantidad_vendida - COALESCE(v.descuento_aplicado, 0)) as monto_total
+        FROM ventas v
+        WHERE v.id_venta = ? AND v.id_cliente = ?
+      `).get(id_venta, id_cliente);
+      if (venta) {
+        const abonosVenta = db.prepare(`
+          SELECT COALESCE(SUM(monto), 0) as total_abonado
+          FROM movimientos_cliente
+          WHERE id_cliente = ?
+            AND tipo_movimiento = 'abono'
+            AND (referencia LIKE ? OR referencia LIKE ?)
+        `).get(
+          id_cliente,
+          `%Venta #${id_venta}%`,
+          `Abono inicial - Venta #${id_venta}%`
+        );
+        const totalAbonado = (abonosVenta == null ? void 0 : abonosVenta.total_abonado) || 0;
+        const montoFaltante = venta.monto_total - totalAbonado;
+        if (monto > montoFaltante) {
+          throw new Error(`El abono ($${monto.toFixed(2)}) no puede ser mayor al monto faltante de este producto ($${montoFaltante.toFixed(2)}).`);
+        }
+      } else {
+        throw new Error("Venta no encontrada.");
+      }
+    } else {
+      if (monto > cliente.saldo_pendiente) {
+        throw new Error(`El abono no puede ser mayor al saldo pendiente ($${cliente.saldo_pendiente.toFixed(2)}).`);
+      }
+    }
+    const nuevoSaldo = cliente.saldo_pendiente - monto;
+    db.prepare(`
+      UPDATE clientes 
+      SET saldo_pendiente = @nuevo_saldo,
+          fecha_ultimo_pago = CURRENT_TIMESTAMP,
+          estado_cuenta = CASE 
+            WHEN @nuevo_saldo > 0 THEN 'Con saldo'
+            ELSE 'Al corriente'
+          END
+      WHERE id_cliente = @id_cliente
+    `).run({
+      nuevo_saldo: nuevoSaldo,
+      id_cliente
+    });
+    const referencia = id_venta ? `Abono - Venta #${id_venta}${notas ? ` - ${notas}` : ""}` : `Abono general${notas ? ` - ${notas}` : ""}`;
+    db.prepare(`
+      INSERT INTO movimientos_cliente (id_cliente, fecha, tipo_movimiento, monto, referencia, responsable)
+      VALUES (@id_cliente, CURRENT_TIMESTAMP, 'abono', @monto, @referencia, @responsable)
+    `).run({
+      id_cliente,
+      monto,
+      referencia,
+      responsable: responsable || null
+    });
+    const ventasAVerificar = id_venta ? [id_venta] : db.prepare(`
+          SELECT DISTINCT v.id_venta
+          FROM ventas v
+          INNER JOIN productos p ON v.folio_producto = p.folio_producto
+          WHERE v.id_cliente = ?
+            AND v.tipo_salida IN ('Crédito', 'Apartado', 'Prestado')
+            AND p.estado_producto IN ('Crédito', 'Apartado', 'Prestado')
+        `).all(id_cliente).map((v) => v.id_venta);
+    for (const ventaId of ventasAVerificar) {
+      const venta = db.prepare(`
+        SELECT 
+          v.folio_producto,
+          v.tipo_salida,
+          (v.precio_unitario_real * v.cantidad_vendida - COALESCE(v.descuento_aplicado, 0)) as monto_venta,
+          p.estado_producto
+        FROM ventas v
+        INNER JOIN productos p ON v.folio_producto = p.folio_producto
+        WHERE v.id_venta = ? AND v.id_cliente = ?
+      `).get(ventaId, id_cliente);
+      if (venta) {
+        const abonosVenta = db.prepare(`
+          SELECT COALESCE(SUM(monto), 0) as total_abonado
+          FROM movimientos_cliente
+          WHERE id_cliente = ? 
+            AND tipo_movimiento = 'abono'
+            AND (referencia LIKE ? OR referencia LIKE ?)
+        `).get(id_cliente, `%Venta #${ventaId}%`, `Abono inicial - Venta #${ventaId}%`);
+        const totalAbonado = (abonosVenta == null ? void 0 : abonosVenta.total_abonado) || 0;
+        const montoVenta = venta.monto_venta;
+        if (totalAbonado >= montoVenta && venta.estado_producto !== "Vendido" && venta.estado_producto !== "Disponible") {
+          const estadoAnterior = venta.estado_producto;
+          const estadoNuevo = venta.tipo_salida === "Prestado" ? "Disponible" : "Vendido";
+          db.prepare(`
+            UPDATE productos 
+            SET estado_producto = @estado_nuevo
+            WHERE folio_producto = @folio
+          `).run({
+            estado_nuevo: estadoNuevo,
+            folio: venta.folio_producto
+          });
+          db.prepare(`
+            INSERT INTO estados_producto (folio_producto, fecha_cambio, estado_anterior, estado_nuevo, motivo, responsable)
+            VALUES (@folio, CURRENT_TIMESTAMP, @estado_anterior, @estado_nuevo, @motivo, @responsable)
+          `).run({
+            folio: venta.folio_producto,
+            estado_anterior: estadoAnterior,
+            estado_nuevo: estadoNuevo,
+            motivo: `Pago completado${notas ? ` - ${notas}` : ""}`,
+            responsable: responsable || null
+          });
+        }
+      }
+    }
+    return { success: true, nuevoSaldo };
+  });
+  try {
+    return procesar();
+  } catch (error) {
+    console.error("Error al registrar abono:", error);
+    throw error;
+  }
+});
+ipcMain.handle("marcar-prestado-devuelto", (_event, datos) => {
+  const { id_venta, responsable, notas } = datos;
+  const procesar = db.transaction(() => {
+    const venta = db.prepare(`
+      SELECT 
+        v.folio_producto,
+        p.estado_producto
+      FROM ventas v
+      INNER JOIN productos p ON v.folio_producto = p.folio_producto
+      WHERE v.id_venta = ? AND v.tipo_salida = 'Prestado'
+    `).get(id_venta);
+    if (!venta) {
+      throw new Error("Venta no encontrada o no es un producto prestado.");
+    }
+    if (venta.estado_producto !== "Prestado") {
+      throw new Error("Este producto ya no está marcado como prestado.");
+    }
+    db.prepare(`
+      UPDATE productos 
+      SET estado_producto = 'Disponible'
+      WHERE folio_producto = @folio
+    `).run({
+      folio: venta.folio_producto
+    });
+    db.prepare(`
+      INSERT INTO estados_producto (folio_producto, fecha_cambio, estado_anterior, estado_nuevo, motivo, responsable)
+      VALUES (@folio, CURRENT_TIMESTAMP, @estadoAnterior, 'Disponible', @motivo, @responsable)
+    `).run({
+      folio: venta.folio_producto,
+      estadoAnterior: "Prestado",
+      motivo: `Producto prestado devuelto${notas ? ` - ${notas}` : ""}`,
+      responsable: responsable || null
+    });
+    return { success: true };
+  });
+  try {
+    return procesar();
+  } catch (error) {
+    console.error("Error al marcar producto como devuelto:", error);
+    throw error;
+  }
+});
+ipcMain.handle("get-productos-disponibles", () => {
+  try {
+    const stmt = db.prepare(`
+      SELECT 
+        p.*, 
+        json_group_array(json_object('talla', tp.talla, 'cantidad', tp.cantidad)) as tallas_detalle
+      FROM productos p
+      LEFT JOIN tallas_producto tp ON p.folio_producto = tp.folio_producto
+      WHERE p.stock_actual > 0
+      GROUP BY p.folio_producto
+      HAVING SUM(tp.cantidad) > 0
+      ORDER BY p.fecha_ultima_actualizacion DESC
+    `);
+    const productos = stmt.all();
+    return productos.map((p) => ({
+      ...p,
+      tallas_detalle: p.tallas_detalle ? JSON.parse(p.tallas_detalle) : []
+    }));
+  } catch (error) {
+    console.error("Error al obtener productos disponibles:", error);
+    return [];
+  }
+});
+ipcMain.handle("registrar-venta", (_event, datos) => {
+  const {
+    fecha_venta,
+    folio_producto,
+    cantidad_vendida,
+    talla,
+    precio_unitario_real,
+    descuento_aplicado,
+    tipo_salida,
+    id_cliente,
+    abono_inicial,
+    responsable_caja,
+    notas
+  } = datos;
+  const registrar = db.transaction(() => {
+    const producto = db.prepare("SELECT stock_actual FROM productos WHERE folio_producto = ?").get(folio_producto);
+    if (!producto) {
+      throw new Error("Producto no encontrado.");
+    }
+    const tallaInfo = db.prepare(`
+      SELECT cantidad FROM tallas_producto 
+      WHERE folio_producto = ? AND talla = ?
+    `).get(folio_producto, talla);
+    if (!tallaInfo || tallaInfo.cantidad < cantidad_vendida) {
+      throw new Error(`Stock insuficiente. Disponible en talla ${talla}: ${(tallaInfo == null ? void 0 : tallaInfo.cantidad) || 0}`);
+    }
+    const stmtVenta = db.prepare(`
+      INSERT INTO ventas (
+        fecha_venta, folio_producto, cantidad_vendida, talla,
+        precio_unitario_real, descuento_aplicado, tipo_salida,
+        id_cliente, responsable_caja, notas
+      ) VALUES (
+        @fecha_venta, @folio_producto, @cantidad_vendida, @talla,
+        @precio_unitario_real, @descuento_aplicado, @tipo_salida,
+        @id_cliente, @responsable_caja, @notas
+      )
+    `);
+    const resultado = stmtVenta.run({
+      fecha_venta,
+      folio_producto,
+      cantidad_vendida,
+      talla,
+      precio_unitario_real,
+      descuento_aplicado: descuento_aplicado || 0,
+      tipo_salida,
+      id_cliente: id_cliente || null,
+      responsable_caja,
+      notas: notas || null
+    });
+    db.prepare(`
+      UPDATE productos 
+      SET stock_actual = stock_actual - @cantidad,
+          fecha_ultima_actualizacion = CURRENT_TIMESTAMP
+      WHERE folio_producto = @folio
+    `).run({
+      cantidad: cantidad_vendida,
+      folio: folio_producto
+    });
+    db.prepare(`
+      UPDATE tallas_producto
+      SET cantidad = cantidad - @cantidad,
+          fecha_actualizacion = CURRENT_TIMESTAMP
+      WHERE folio_producto = @folio AND talla = @talla
+    `).run({
+      cantidad: cantidad_vendida,
+      folio: folio_producto,
+      talla
+    });
+    const tallaActual = db.prepare(`
+      SELECT cantidad FROM tallas_producto 
+      WHERE folio_producto = ? AND talla = ?
+    `).get(folio_producto, talla);
+    if (tallaActual && tallaActual.cantidad <= 0) {
+      db.prepare(`
+        DELETE FROM tallas_producto 
+        WHERE folio_producto = ? AND talla = ?
+      `).run(folio_producto, talla);
+    }
+    if (id_cliente && (tipo_salida === "Crédito" || tipo_salida === "Apartado")) {
+      const montoTotal = precio_unitario_real * cantidad_vendida - (descuento_aplicado || 0);
+      const abono = abono_inicial || 0;
+      if (abono > montoTotal) {
+        throw new Error(`El abono inicial ($${abono.toFixed(2)}) no puede ser mayor al monto total ($${montoTotal.toFixed(2)}). Esto generaría un saldo negativo.`);
+      }
+      if (abono < 0) {
+        throw new Error("El abono inicial no puede ser negativo.");
+      }
+      db.prepare(`
+        UPDATE clientes 
+        SET saldo_pendiente = saldo_pendiente + @monto,
+            estado_cuenta = 'Con saldo'
+        WHERE id_cliente = @id_cliente
+      `).run({
+        monto: montoTotal,
+        id_cliente
+      });
+      db.prepare(`
+        INSERT INTO movimientos_cliente (id_cliente, fecha, tipo_movimiento, monto, referencia, responsable)
+        VALUES (@id_cliente, @fecha, 'cargo', @monto, @referencia, @responsable)
+      `).run({
+        id_cliente,
+        fecha: fecha_venta,
+        monto: montoTotal,
+        referencia: `Venta #${resultado.lastInsertRowid}`,
+        responsable: responsable_caja
+      });
+      if (abono > 0) {
+        db.prepare(`
+          UPDATE clientes 
+          SET saldo_pendiente = saldo_pendiente - @monto,
+              estado_cuenta = CASE 
+                WHEN saldo_pendiente - @monto > 0 THEN 'Con saldo'
+                ELSE 'Al corriente'
+              END
+          WHERE id_cliente = @id_cliente
+        `).run({
+          monto: abono,
+          id_cliente
+        });
+        db.prepare(`
+          INSERT INTO movimientos_cliente (id_cliente, fecha, tipo_movimiento, monto, referencia, responsable)
+          VALUES (@id_cliente, @fecha, 'abono', @monto, @referencia, @responsable)
+        `).run({
+          id_cliente,
+          fecha: fecha_venta,
+          monto: abono,
+          referencia: `Abono inicial - Venta #${resultado.lastInsertRowid}`,
+          responsable: responsable_caja
+        });
+      }
+    }
+    if (tipo_salida === "Crédito" || tipo_salida === "Apartado" || tipo_salida === "Prestado") {
+      const estadoAnterior = db.prepare("SELECT estado_producto FROM productos WHERE folio_producto = ?").get(folio_producto);
+      db.prepare(`
+        UPDATE productos 
+        SET estado_producto = @estado_nuevo
+        WHERE folio_producto = @folio
+      `).run({
+        estado_nuevo: tipo_salida,
+        folio: folio_producto
+      });
+      db.prepare(`
+        INSERT INTO estados_producto (folio_producto, fecha_cambio, estado_anterior, estado_nuevo, motivo, responsable)
+        VALUES (@folio, @fecha, @estado_anterior, @estado_nuevo, @motivo, @responsable)
+      `).run({
+        folio: folio_producto,
+        fecha: fecha_venta,
+        estado_anterior: (estadoAnterior == null ? void 0 : estadoAnterior.estado_producto) || "Disponible",
+        estado_nuevo: tipo_salida,
+        motivo: notas || `Venta registrada como ${tipo_salida}`,
+        responsable: responsable_caja
+      });
+    }
+  });
+  try {
+    registrar();
+    return { success: true };
+  } catch (error) {
+    console.error("Error al registrar venta:", error);
+    throw error;
+  }
+});
+ipcMain.handle("eliminar-venta", (_event, id_venta) => {
+  const eliminar = db.transaction(() => {
+    const venta = db.prepare(`
+      SELECT 
+        folio_producto,
+        cantidad_vendida,
+        talla,
+        tipo_salida,
+        id_cliente,
+        precio_unitario_real,
+        descuento_aplicado
+      FROM ventas
+      WHERE id_venta = ?
+    `).get(id_venta);
+    if (!venta) {
+      throw new Error("Venta no encontrada.");
+    }
+    db.prepare(`
+      UPDATE productos 
+      SET stock_actual = stock_actual + @cantidad,
+          fecha_ultima_actualizacion = CURRENT_TIMESTAMP
+      WHERE folio_producto = @folio
+    `).run({
+      cantidad: venta.cantidad_vendida,
+      folio: venta.folio_producto
+    });
+    const tallaExistente = db.prepare(`
+      SELECT cantidad FROM tallas_producto 
+      WHERE folio_producto = ? AND talla = ?
+    `).get(venta.folio_producto, venta.talla);
+    if (tallaExistente) {
+      db.prepare(`
+        UPDATE tallas_producto
+        SET cantidad = cantidad + @cantidad,
+            fecha_actualizacion = CURRENT_TIMESTAMP
+        WHERE folio_producto = @folio AND talla = @talla
+      `).run({
+        cantidad: venta.cantidad_vendida,
+        folio: venta.folio_producto,
+        talla: venta.talla
+      });
+    } else {
+      db.prepare(`
+        INSERT INTO tallas_producto (folio_producto, talla, cantidad, fecha_actualizacion)
+        VALUES (@folio, @talla, @cantidad, CURRENT_TIMESTAMP)
+      `).run({
+        folio: venta.folio_producto,
+        talla: venta.talla,
+        cantidad: venta.cantidad_vendida
+      });
+    }
+    if (venta.id_cliente && (venta.tipo_salida === "Crédito" || venta.tipo_salida === "Apartado")) {
+      const montoTotal = venta.precio_unitario_real * venta.cantidad_vendida - (venta.descuento_aplicado || 0);
+      const abonos = db.prepare(`
+        SELECT COALESCE(SUM(monto), 0) as total_abonado
+        FROM movimientos_cliente
+        WHERE id_cliente = ?
+          AND tipo_movimiento = 'abono'
+          AND (referencia LIKE ? OR referencia LIKE ?)
+      `).get(venta.id_cliente, `%Venta #${id_venta}%`, `Abono inicial - Venta #${id_venta}%`);
+      const totalAbonado = (abonos == null ? void 0 : abonos.total_abonado) || 0;
+      const saldoARevertir = montoTotal - totalAbonado;
+      if (saldoARevertir > 0) {
+        db.prepare(`
+          UPDATE clientes 
+          SET saldo_pendiente = saldo_pendiente - @monto,
+              estado_cuenta = CASE 
+                WHEN saldo_pendiente - @monto > 0 THEN 'Con saldo'
+                ELSE 'Al corriente'
+              END
+          WHERE id_cliente = @id_cliente
+        `).run({
+          monto: saldoARevertir,
+          id_cliente: venta.id_cliente
+        });
+      }
+      db.prepare(`
+        DELETE FROM movimientos_cliente
+        WHERE id_cliente = ?
+          AND (referencia LIKE ? OR referencia LIKE ?)
+      `).run(venta.id_cliente, `%Venta #${id_venta}%`, `Abono inicial - Venta #${id_venta}%`);
+    }
+    if (venta.tipo_salida === "Apartado" || venta.tipo_salida === "Prestado") {
+      const ultimoEstado = db.prepare(`
+        SELECT estado_anterior 
+        FROM estados_producto
+        WHERE folio_producto = ?
+          AND estado_nuevo = ?
+        ORDER BY fecha_cambio DESC
+        LIMIT 1
+      `).get(venta.folio_producto, venta.tipo_salida);
+      const estadoNuevo = (ultimoEstado == null ? void 0 : ultimoEstado.estado_anterior) || "Disponible";
+      db.prepare(`
+        UPDATE productos 
+        SET estado_producto = @estadoNuevo
+        WHERE folio_producto = @folio
+      `).run({
+        estadoNuevo,
+        folio: venta.folio_producto
+      });
+      db.prepare(`
+        INSERT INTO estados_producto (folio_producto, fecha_cambio, estado_anterior, estado_nuevo, motivo, responsable)
+        VALUES (@folio, CURRENT_TIMESTAMP, @estadoAnterior, @estadoNuevo, @motivo, @responsable)
+      `).run({
+        folio: venta.folio_producto,
+        estadoAnterior: venta.tipo_salida,
+        estadoNuevo,
+        motivo: "Venta eliminada - Estado revertido",
+        responsable: null
+      });
+    } else if (venta.tipo_salida === "Crédito") {
+      const producto = db.prepare("SELECT estado_producto FROM productos WHERE folio_producto = ?").get(venta.folio_producto);
+      if ((producto == null ? void 0 : producto.estado_producto) === "Crédito") {
+        const ultimoEstado = db.prepare(`
+          SELECT estado_anterior 
+          FROM estados_producto
+          WHERE folio_producto = ?
+            AND estado_nuevo = 'Crédito'
+          ORDER BY fecha_cambio DESC
+          LIMIT 1
+        `).get(venta.folio_producto);
+        const estadoNuevo = (ultimoEstado == null ? void 0 : ultimoEstado.estado_anterior) || "Disponible";
+        db.prepare(`
+          UPDATE productos 
+          SET estado_producto = @estadoNuevo
+          WHERE folio_producto = @folio
+        `).run({
+          estadoNuevo,
+          folio: venta.folio_producto
+        });
+        db.prepare(`
+          INSERT INTO estados_producto (folio_producto, fecha_cambio, estado_anterior, estado_nuevo, motivo, responsable)
+          VALUES (@folio, CURRENT_TIMESTAMP, 'Crédito', @estadoNuevo, 'Venta eliminada - Estado revertido', NULL)
+        `).run({
+          folio: venta.folio_producto,
+          estadoNuevo
+        });
+      }
+    }
+    db.prepare("DELETE FROM ventas WHERE id_venta = ?").run(id_venta);
+    return { success: true };
+  });
+  try {
+    return eliminar();
+  } catch (error) {
+    console.error("Error al eliminar venta:", error);
     throw error;
   }
 });

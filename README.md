@@ -4,7 +4,7 @@ Sistema de gestión para tienda de ropa, diseñado para optimizar el control de 
 
 ## Módulos del Sistema
 
-*   **Ventas (Punto de Venta)**: Interfaz ágil para registrar salidas de mercancía, cobros y cambios de estado (venta, apartado, crédito).
+*   **Ventas (Punto de Venta)**: Interfaz ágil para registrar salidas de mercancía, cobros y cambios de estado (Comprado, crédito, apartado, prestado).
 *   **Inventario**: Vista general de existencias con filtrado por categoría, talla y estado.
 *   **Entradas**: Registro de nueva mercancía y reabastecimiento de proveedores.
 *   **Estadísticas**: Tableros de análisis para visualizar rendimiento diario, productos más vendidos y rotación de stock.

@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS ventas (
   fecha_venta TEXT NOT NULL,
   folio_producto TEXT NOT NULL,
   cantidad_vendida INTEGER NOT NULL,
+  talla TEXT NOT NULL,
   precio_unitario_real REAL NOT NULL,
   descuento_aplicado REAL DEFAULT 0,
   tipo_salida TEXT NOT NULL DEFAULT 'Venta',

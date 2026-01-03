@@ -24,9 +24,25 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
   registrarEntradaExistente: (entrada) => electron.ipcRenderer.invoke("registrar-entrada-existente", entrada),
   actualizarStock: (datos) => electron.ipcRenderer.invoke("actualizar-stock", datos),
   getHistorialEntradas: (folio) => electron.ipcRenderer.invoke("get-historial-entradas", folio),
+  getHistorialVentas: (folio) => electron.ipcRenderer.invoke("get-historial-ventas", folio),
+  getHistorialMovimientos: (folio) => electron.ipcRenderer.invoke("get-historial-movimientos", folio),
   getProveedores: () => electron.ipcRenderer.invoke("get-proveedores"),
   agregarProveedor: (nombre) => electron.ipcRenderer.invoke("agregar-proveedor", nombre),
   eliminarProveedor: (nombre) => electron.ipcRenderer.invoke("eliminar-proveedor", nombre),
   getUltimaEntrada: (folio) => electron.ipcRenderer.invoke("get-ultima-entrada", folio),
-  eliminarEntrada: (id_entrada) => electron.ipcRenderer.invoke("eliminar-entrada", id_entrada)
+  eliminarEntrada: (id_entrada) => electron.ipcRenderer.invoke("eliminar-entrada", id_entrada),
+  getPrecioVenta: (datos) => electron.ipcRenderer.invoke("get-precio-venta", datos),
+  // Clientes
+  getClientes: () => electron.ipcRenderer.invoke("get-clientes"),
+  agregarCliente: (datos) => electron.ipcRenderer.invoke("agregar-cliente", datos),
+  eliminarCliente: (id_cliente) => electron.ipcRenderer.invoke("eliminar-cliente", id_cliente),
+  getHistorialCliente: (id_cliente) => electron.ipcRenderer.invoke("get-historial-cliente", id_cliente),
+  getProductosPendientesCliente: (id_cliente) => electron.ipcRenderer.invoke("get-productos-pendientes-cliente", id_cliente),
+  registrarAbonoCliente: (datos) => electron.ipcRenderer.invoke("registrar-abono-cliente", datos),
+  marcarPrestadoDevuelto: (datos) => electron.ipcRenderer.invoke("marcar-prestado-devuelto", datos),
+  // Ventas
+  getProductosDisponibles: () => electron.ipcRenderer.invoke("get-productos-disponibles"),
+  registrarVenta: (datos) => electron.ipcRenderer.invoke("registrar-venta", datos),
+  getPrecioVentaPorTalla: (datos) => electron.ipcRenderer.invoke("get-precio-venta-por-talla", datos),
+  eliminarVenta: (id_venta) => electron.ipcRenderer.invoke("eliminar-venta", id_venta)
 });
