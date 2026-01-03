@@ -1,58 +1,37 @@
-import { useEffect, useState } from 'react'
-import { Encabezado } from './componentes/Encabezado'
+import { useState } from 'react'
+import { Encabezado, type Pagina } from './componentes/Encabezado'
+import { Ventas } from './paginas/Ventas'
+import { Inventario } from './paginas/Inventario'
+import { Entradas } from './paginas/Entradas'
+import { Estadisticas } from './paginas/Estadisticas'
 import './App.css'
 
 function App() {
-  const [mensajePrincipal, establecerMensajePrincipal] = useState(
-    'Esperando mensaje del proceso principal...',
-  )
-  const [accionesRegistradas, establecerAccionesRegistradas] = useState(0)
+  const [paginaActual, setPaginaActual] = useState<Pagina>('ventas')
 
-  useEffect(() => {
-    const manejarMensaje = (_evento: unknown, mensaje: string) => {
-      establecerMensajePrincipal(`Último mensaje recibido: ${mensaje}`)
+  const renderizarPagina = () => {
+    switch (paginaActual) {
+      case 'ventas':
+        return <Ventas />
+      case 'inventario':
+        return <Inventario />
+      case 'entradas':
+        return <Entradas />
+      case 'estadisticas':
+        return <Estadisticas />
+      default:
+        return <Ventas />
     }
-
-    window.ipcRenderer.on('main-process-message', manejarMensaje)
-
-    return () => {
-      window.ipcRenderer.off('main-process-message', manejarMensaje)
-    }
-  }, [])
+  }
 
   return (
     <>
-      <Encabezado />
+      <Encabezado
+        paginaActual={paginaActual}
+        cambiarPagina={setPaginaActual}
+      />
       <main className="contenedor-aplicacion">
-        <section className="panel-principal">
-          <header>
-            <p className="etiqueta">Proyecto base</p>
-            <h1>Marly escritorio</h1>
-            <p className="descripcion">
-              Punto de partida limpio para crear interfaces de escritorio con
-              Electron, React y Vite.
-            </p>
-          </header>
-
-          <div className="tarjeta-estado">
-            <p className="etiqueta">Proceso principal</p>
-            <p className="valor-estado">{mensajePrincipal}</p>
-          </div>
-
-          <div className="acciones">
-            <button
-              type="button"
-              onClick={() =>
-                establecerAccionesRegistradas((valorActual) => valorActual + 1)
-              }
-            >
-              Registrar acción
-            </button>
-            <p className="nota">
-              Acciones registradas: <strong>{accionesRegistradas}</strong>
-            </p>
-          </div>
-        </section>
+        {renderizarPagina()}
       </main>
     </>
   )

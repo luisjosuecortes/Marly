@@ -1,6 +1,13 @@
 import './Encabezado.css'
 
-export function Encabezado() {
+export type Pagina = 'ventas' | 'inventario' | 'entradas' | 'estadisticas'
+
+interface PropsEncabezado {
+  paginaActual: Pagina
+  cambiarPagina: (pagina: Pagina) => void
+}
+
+export function Encabezado({ paginaActual, cambiarPagina }: PropsEncabezado) {
   return (
     <header className="encabezado">
       <div className="contenedor-logo">
@@ -23,13 +30,31 @@ export function Encabezado() {
       </div>
 
       <nav className="navegacion">
-        <button className="boton-nav activo">Ventas</button>
-        <button className="boton-nav">Inventario</button>
-        <button className="boton-nav">Entradas</button>
-        <button className="boton-nav">Estadísticas</button>
+        <button
+          className={`boton-nav ${paginaActual === 'ventas' ? 'activo' : ''}`}
+          onClick={() => cambiarPagina('ventas')}
+        >
+          Ventas
+        </button>
+        <button
+          className={`boton-nav ${paginaActual === 'inventario' ? 'activo' : ''}`}
+          onClick={() => cambiarPagina('inventario')}
+        >
+          Inventario
+        </button>
+        <button
+          className={`boton-nav ${paginaActual === 'entradas' ? 'activo' : ''}`}
+          onClick={() => cambiarPagina('entradas')}
+        >
+          Entradas
+        </button>
+        <button
+          className={`boton-nav ${paginaActual === 'estadisticas' ? 'activo' : ''}`}
+          onClick={() => cambiarPagina('estadisticas')}
+        >
+          Estadísticas
+        </button>
       </nav>
     </header>
   )
 }
-
-
