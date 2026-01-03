@@ -6,8 +6,8 @@ CREATE TABLE IF NOT EXISTS productos (
   categoria TEXT NOT NULL,
   genero_destino TEXT NOT NULL,
   estado_producto TEXT NOT NULL DEFAULT 'Disponible',
+  stock_actual INTEGER NOT NULL DEFAULT 0,
   stock_minimo INTEGER NOT NULL DEFAULT 0,
-  stock_maximo INTEGER NOT NULL DEFAULT 0,
   proveedor TEXT,
   fecha_ultima_actualizacion TEXT DEFAULT CURRENT_TIMESTAMP,
   observaciones TEXT
@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS entradas (
   fecha_entrada TEXT NOT NULL,
   folio_producto TEXT NOT NULL,
   cantidad_recibida INTEGER NOT NULL,
+  talla TEXT NOT NULL,
   costo_unitario_proveedor REAL NOT NULL,
   precio_unitario_base REAL NOT NULL,
   precio_unitario_promocion REAL,
@@ -78,3 +79,17 @@ CREATE TABLE IF NOT EXISTS movimientos_cliente (
   CHECK (tipo_movimiento IN ('cargo', 'abono'))
 );
 
+CREATE TABLE IF NOT EXISTS tallas_producto (
+  id_talla INTEGER PRIMARY KEY AUTOINCREMENT,
+  folio_producto TEXT NOT NULL,
+  talla TEXT NOT NULL,
+  cantidad INTEGER NOT NULL DEFAULT 0,
+  fecha_actualizacion TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (folio_producto) REFERENCES productos (folio_producto) ON UPDATE CASCADE ON DELETE CASCADE,
+  CHECK (cantidad >= 0),
+  UNIQUE (folio_producto, talla)
+);
+
+CREATE TABLE IF NOT EXISTS proveedores (
+  nombre TEXT PRIMARY KEY
+);
