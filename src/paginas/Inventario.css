@@ -1,0 +1,124 @@
+.filtros-container {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.input-busqueda-inventario {
+  flex: 1;
+  min-width: 250px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(15, 23, 42, 0.3);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 10px;
+  padding: 0.6rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.input-busqueda-inventario:focus-within {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+}
+
+.input-busqueda-inventario input {
+  background: transparent;
+  border: none;
+  color: #e2e8f0;
+  flex: 1;
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.input-busqueda-inventario .icono-busqueda {
+  color: #94a3b8;
+}
+
+.grupo-filtro {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(15, 23, 42, 0.3);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 10px;
+  padding: 0 1rem;
+}
+
+.etiqueta-filtro {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.grupo-filtro select {
+  background: transparent;
+  border: none;
+  color: #e2e8f0;
+  padding: 0.6rem 0;
+  font-size: 0.9rem;
+  outline: none;
+  cursor: pointer;
+  min-width: 100px;
+}
+
+.grupo-filtro select option {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+.grupo-filtro svg {
+  color: #94a3b8;
+}
+
+/* Nuevos estilos para badges de tallas detalladas */
+.lista-tallas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.talla-badge {
+  display: inline-flex;
+  align-items: center;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 0.75rem;
+}
+
+.talla-nombre {
+  padding: 0.2rem 0.5rem;
+  background: rgba(148, 163, 184, 0.1);
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
+.talla-cantidad {
+  padding: 0.2rem 0.5rem;
+  color: #fff;
+  font-weight: 700;
+  min-width: 24px;
+  text-align: center;
+}
+
+.btn-accion {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.4rem;
+  border-radius: 6px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-accion:hover {
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+}
