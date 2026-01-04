@@ -316,7 +316,17 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
         precio_unitario_real: precioUnitarioRealNum,
         descuento_aplicado: descuentoAplicadoNum,
         abono_inicial: abonoInicialNum,
-        fecha_venta: new Date().toISOString()
+        // Usar fecha local en formato YYYY-MM-DD HH:MM:SS
+        fecha_venta: (() => {
+          const ahora = new Date()
+          const year = ahora.getFullYear()
+          const month = String(ahora.getMonth() + 1).padStart(2, '0')
+          const day = String(ahora.getDate()).padStart(2, '0')
+          const hours = String(ahora.getHours()).padStart(2, '0')
+          const minutes = String(ahora.getMinutes()).padStart(2, '0')
+          const seconds = String(ahora.getSeconds()).padStart(2, '0')
+          return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+        })()
       })
       // Resetear formulario
       setVenta({

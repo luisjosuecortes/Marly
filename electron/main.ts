@@ -1515,6 +1515,226 @@ ipcMain.handle('eliminar-movimiento-cliente', (_event, id_movimiento) => {
   }
 })
 
+// =============================================
+// ESTADÍSTICAS
+// =============================================
+
+// Resumen de KPIs principales
+ipcMain.handle('get-estadisticas-resumen', (_event, filtro: { fechaInicio?: string, fechaFin?: string } = {}) => {
+  const hoy = new Date().toISOString().split('T')[0]
+  const fechaInicio = filtro.fechaInicio || hoy
+  const fechaFin = filtro.fechaFin || hoy
+
+  // Ventas del período (solo tipo Venta, dinero recibido)
+  const ventasPeriodo = db.prepare(`
+    SELECT 
+      COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as total_ventas,
+      COALESCE(COUNT(*), 0) as num_ventas
+    FROM ventas
+    WHERE DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
+  `).get(fechaInicio, fechaFin) as any
+
+  // Costos del período (basado en las ventas realizadas)
+  const costosPeriodo = db.prepare(`
+    SELECT COALESCE(SUM(
+      v.cantidad_vendida * (
+        SELECT COALESCE(e.costo_unitario_proveedor, 0)
+        FROM entradas e
+        WHERE e.folio_producto = v.folio_producto AND e.talla = v.talla
+        ORDER BY e.fecha_entrada DESC
+        LIMIT 1
+      )
+    ), 0) as total_costos
+    FROM ventas v
+    WHERE DATE(v.fecha_venta) >= DATE(?) AND DATE(v.fecha_venta) <= DATE(?)
+  `).get(fechaInicio, fechaFin) as any
+
+  // Dinero cobrado (Ventas directas + Abonos de créditos/apartados)
+  const cobradoPeriodo = db.prepare(`
+    SELECT (
+      -- 1. Ventas directas (tipo 'Venta')
+      (SELECT COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0)
+       FROM ventas
+       WHERE tipo_salida = 'Venta'
+       AND DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?))
+      +
+      -- 2. Abonos recibidos (iniciales y posteriores)
+      (SELECT COALESCE(SUM(monto), 0)
+       FROM movimientos_cliente
+       WHERE tipo_movimiento = 'abono'
+       AND DATE(fecha) >= DATE(?) AND DATE(fecha) <= DATE(?))
+    ) as total_cobrado
+  `).get(fechaInicio, fechaFin, fechaInicio, fechaFin) as any
+
+  // Saldo pendiente total de clientes
+  const saldoPendiente = db.prepare(`
+    SELECT COALESCE(SUM(saldo_pendiente), 0) as total_pendiente
+    FROM clientes
+    WHERE saldo_pendiente > 0
+  `).get() as any
+
+  // Valor del inventario actual
+  const valorInventario = db.prepare(`
+    SELECT COALESCE(SUM(
+      tp.cantidad * (
+        SELECT COALESCE(e.costo_unitario_proveedor, 0)
+        FROM entradas e
+        WHERE e.folio_producto = tp.folio_producto AND e.talla = tp.talla
+        ORDER BY e.fecha_entrada DESC
+        LIMIT 1
+      )
+    ), 0) as valor_inventario
+    FROM tallas_producto tp
+    WHERE tp.cantidad > 0
+  `).get() as any
+
+  const totalVentas = ventasPeriodo?.total_ventas || 0
+  const totalCostos = costosPeriodo?.total_costos || 0
+
+  return {
+    ventasTotales: totalVentas,
+    costosTotales: totalCostos,
+    gananciaNeta: totalVentas - totalCostos,
+    totalCobrado: cobradoPeriodo?.total_cobrado || 0,
+    saldoPendiente: saldoPendiente?.total_pendiente || 0,
+    valorInventario: valorInventario?.valor_inventario || 0,
+    numVentas: ventasPeriodo?.num_ventas || 0
+  }
+})
+
+// Ventas agrupadas por período para gráfica temporal
+ipcMain.handle('get-ventas-por-periodo', (_event, filtro: { fechaInicio: string, fechaFin: string, agrupacion?: string }) => {
+  const { fechaInicio, fechaFin, agrupacion = 'dia' } = filtro
+
+  let groupBy: string
+  let selectPeriodo: string
+
+  switch (agrupacion) {
+    case 'hora':
+      // Para "Hoy" - agrupar por hora
+      selectPeriodo = "strftime('%H', fecha_venta)"
+      groupBy = "strftime('%H', fecha_venta)"
+      break
+    case 'dia_semana':
+      // Para "Semana" - agrupar por día de la semana (0=Domingo, 1=Lunes, etc)
+      selectPeriodo = "strftime('%w', fecha_venta)"
+      groupBy = "strftime('%w', fecha_venta)"
+      break
+    case 'dia_mes':
+      // Para "Mes" - agrupar por día del mes
+      selectPeriodo = "strftime('%d', fecha_venta)"
+      groupBy = "strftime('%d', fecha_venta)"
+      break
+    case 'mes':
+      // Para "Año" - agrupar por mes
+      selectPeriodo = "strftime('%m', fecha_venta)"
+      groupBy = "strftime('%m', fecha_venta)"
+      break
+    default:
+      // Por defecto - agrupar por fecha completa
+      selectPeriodo = "DATE(fecha_venta)"
+      groupBy = "DATE(fecha_venta)"
+  }
+
+  const ventas = db.prepare(`
+    SELECT 
+      ${selectPeriodo} as periodo,
+      COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as total_ventas,
+      COUNT(*) as num_ventas
+    FROM ventas
+    WHERE DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
+    GROUP BY ${groupBy}
+    ORDER BY periodo ASC
+  `).all(fechaInicio, fechaFin)
+
+  return ventas
+})
+
+// Top productos más vendidos
+ipcMain.handle('get-productos-mas-vendidos', (_event, filtro: { fechaInicio?: string, fechaFin?: string, limite?: number } = {}) => {
+  const hoy = new Date().toISOString().split('T')[0]
+  const hace30Dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const fechaInicio = filtro.fechaInicio || hace30Dias
+  const fechaFin = filtro.fechaFin || hoy
+  const limite = filtro.limite || 10
+
+  const productos = db.prepare(`
+    SELECT 
+      v.folio_producto,
+      p.nombre_producto,
+      SUM(v.cantidad_vendida) as unidades_vendidas,
+      SUM(v.cantidad_vendida * v.precio_unitario_real - COALESCE(v.descuento_aplicado, 0)) as monto_total
+    FROM ventas v
+    JOIN productos p ON v.folio_producto = p.folio_producto
+    WHERE DATE(v.fecha_venta) >= DATE(?) AND DATE(v.fecha_venta) <= DATE(?)
+    GROUP BY v.folio_producto
+    ORDER BY monto_total DESC
+    LIMIT ?
+  `).all(fechaInicio, fechaFin, limite)
+
+  return productos
+})
+
+// Ventas por categoría
+ipcMain.handle('get-ventas-por-categoria', (_event, filtro: { fechaInicio?: string, fechaFin?: string } = {}) => {
+  const hoy = new Date().toISOString().split('T')[0]
+  const hace30Dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const fechaInicio = filtro.fechaInicio || hace30Dias
+  const fechaFin = filtro.fechaFin || hoy
+
+  const categorias = db.prepare(`
+    SELECT 
+      p.categoria,
+      SUM(v.cantidad_vendida) as unidades_vendidas,
+      SUM(v.cantidad_vendida * v.precio_unitario_real - COALESCE(v.descuento_aplicado, 0)) as monto_total
+    FROM ventas v
+    JOIN productos p ON v.folio_producto = p.folio_producto
+    WHERE DATE(v.fecha_venta) >= DATE(?) AND DATE(v.fecha_venta) <= DATE(?)
+    GROUP BY p.categoria
+    ORDER BY monto_total DESC
+  `).all(fechaInicio, fechaFin)
+
+  return categorias
+})
+
+// Ventas por tipo de salida
+ipcMain.handle('get-ventas-por-tipo', (_event, filtro: { fechaInicio?: string, fechaFin?: string } = {}) => {
+  const hoy = new Date().toISOString().split('T')[0]
+  const hace30Dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const fechaInicio = filtro.fechaInicio || hace30Dias
+  const fechaFin = filtro.fechaFin || hoy
+
+  const tipos = db.prepare(`
+    SELECT 
+      tipo_salida,
+      COUNT(*) as cantidad,
+      SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)) as monto_total
+    FROM ventas
+    WHERE DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
+    GROUP BY tipo_salida
+    ORDER BY monto_total DESC
+  `).all(fechaInicio, fechaFin)
+
+  return tipos
+})
+
+// Clientes con saldo pendiente
+ipcMain.handle('get-clientes-con-saldo', () => {
+  const clientes = db.prepare(`
+    SELECT 
+      id_cliente,
+      nombre_completo,
+      telefono,
+      saldo_pendiente,
+      estado_cuenta
+    FROM clientes
+    WHERE saldo_pendiente > 0
+    ORDER BY saldo_pendiente DESC
+  `).all()
+
+  return clientes
+})
+
 let ventanaPrincipal: BrowserWindow | null
 
 function crearVentana() {

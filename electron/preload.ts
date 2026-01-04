@@ -48,4 +48,11 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   getPrecioVentaPorTalla: (datos: { folio_producto: string, talla: string }) => ipcRenderer.invoke('get-precio-venta-por-talla', datos),
   eliminarVenta: (id_venta: number) => ipcRenderer.invoke('eliminar-venta', id_venta),
   eliminarMovimientoCliente: (id_movimiento: number) => ipcRenderer.invoke('eliminar-movimiento-cliente', id_movimiento),
+  // Estadísticas
+  getEstadisticasResumen: (filtro?: { fechaInicio?: string, fechaFin?: string }) => ipcRenderer.invoke('get-estadisticas-resumen', filtro || {}),
+  getVentasPorPeriodo: (filtro: { fechaInicio: string, fechaFin: string, agrupacion?: string }) => ipcRenderer.invoke('get-ventas-por-periodo', filtro),
+  getProductosMasVendidos: (filtro?: { fechaInicio?: string, fechaFin?: string, limite?: number }) => ipcRenderer.invoke('get-productos-mas-vendidos', filtro || {}),
+  getVentasPorCategoria: (filtro?: { fechaInicio?: string, fechaFin?: string }) => ipcRenderer.invoke('get-ventas-por-categoria', filtro || {}),
+  getVentasPorTipo: (filtro?: { fechaInicio?: string, fechaFin?: string }) => ipcRenderer.invoke('get-ventas-por-tipo', filtro || {}),
+  getClientesConSaldo: () => ipcRenderer.invoke('get-clientes-con-saldo'),
 })

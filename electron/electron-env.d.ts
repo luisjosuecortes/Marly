@@ -29,5 +29,35 @@ interface Window {
     getPrecioVentaPorTalla: (datos: { folio_producto: string, talla: string }) => Promise<{ precio_unitario_base: number }>
     eliminarVenta: (id_venta: number) => Promise<{ success: boolean }>
     eliminarMovimientoCliente: (id_movimiento: number) => Promise<{ success: boolean }>
+    // Estadísticas
+    getEstadisticasResumen: (filtro: { fechaInicio: string, fechaFin: string }) => Promise<{ ventasTotales: number, costosTotales: number, gananciaNeta: number, totalCobrado: number, saldoPendiente: number, valorInventario: number, numVentas: number }>
+    getVentasPorPeriodo: (filtro: { fechaInicio: string, fechaFin: string, agrupacion?: string }) => Promise<Array<{
+      periodo: string
+      total_ventas: number
+      num_ventas: number
+    }>>
+    getProductosMasVendidos: (filtro?: { fechaInicio?: string, fechaFin?: string, limite?: number }) => Promise<Array<{
+      folio_producto: string
+      nombre_producto: string
+      unidades_vendidas: number
+      monto_total: number
+    }>>
+    getVentasPorCategoria: (filtro?: { fechaInicio?: string, fechaFin?: string }) => Promise<Array<{
+      categoria: string
+      unidades_vendidas: number
+      monto_total: number
+    }>>
+    getVentasPorTipo: (filtro?: { fechaInicio?: string, fechaFin?: string }) => Promise<Array<{
+      tipo_salida: string
+      cantidad: number
+      monto_total: number
+    }>>
+    getClientesConSaldo: () => Promise<Array<{
+      id_cliente: number
+      nombre_completo: string
+      telefono: string | null
+      saldo_pendiente: number
+      estado_cuenta: string
+    }>>
   }
 }

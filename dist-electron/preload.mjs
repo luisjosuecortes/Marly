@@ -45,5 +45,12 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
   registrarVenta: (datos) => electron.ipcRenderer.invoke("registrar-venta", datos),
   getPrecioVentaPorTalla: (datos) => electron.ipcRenderer.invoke("get-precio-venta-por-talla", datos),
   eliminarVenta: (id_venta) => electron.ipcRenderer.invoke("eliminar-venta", id_venta),
-  eliminarMovimientoCliente: (id_movimiento) => electron.ipcRenderer.invoke("eliminar-movimiento-cliente", id_movimiento)
+  eliminarMovimientoCliente: (id_movimiento) => electron.ipcRenderer.invoke("eliminar-movimiento-cliente", id_movimiento),
+  // Estadísticas
+  getEstadisticasResumen: (filtro) => electron.ipcRenderer.invoke("get-estadisticas-resumen", filtro || {}),
+  getVentasPorPeriodo: (filtro) => electron.ipcRenderer.invoke("get-ventas-por-periodo", filtro),
+  getProductosMasVendidos: (filtro) => electron.ipcRenderer.invoke("get-productos-mas-vendidos", filtro || {}),
+  getVentasPorCategoria: (filtro) => electron.ipcRenderer.invoke("get-ventas-por-categoria", filtro || {}),
+  getVentasPorTipo: (filtro) => electron.ipcRenderer.invoke("get-ventas-por-tipo", filtro || {}),
+  getClientesConSaldo: () => electron.ipcRenderer.invoke("get-clientes-con-saldo")
 });

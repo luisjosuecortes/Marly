@@ -1,12 +1,19 @@
 .contenedor-aplicacion {
   min-height: 100vh;
-  padding-top: 100px; /* Espacio para el header fijo */
+  padding-top: 100px;
+  /* Espacio para el header fijo */
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  padding-left: 2rem;
-  padding-right: 2rem;
+  padding-left: 18rem;
+  padding-right: 18rem;
   padding-bottom: 2rem;
+}
+
+.pagina-contenido {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
 }
 
 .panel-principal {
@@ -40,7 +47,7 @@
   margin: 0;
   color: #cbd5f5;
   line-height: 1.5;
-  }
+}
 
 .tarjeta-estado {
   padding: 1.5rem;
