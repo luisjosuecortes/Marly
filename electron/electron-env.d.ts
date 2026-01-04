@@ -5,7 +5,7 @@ interface Window {
     getProductoDetalle: (folio: string) => Promise<any | null>
     registrarNuevoProducto: (datos: { producto: any, entrada: any }) => Promise<{ success: true }>
     registrarEntradaExistente: (entrada: any) => Promise<{ success: true }>
-    actualizarStock: (datos: { folio_producto: string, nuevo_stock: number, motivo?: string, responsable?: string }) => Promise<{ success: true }>
+    actualizarStock: (datos: { folio_producto: string, nuevo_stock: number, talla: string, motivo?: string, responsable?: string }) => Promise<{ success: true }>
     getHistorialEntradas: (folio: string) => Promise<any[]>
     getHistorialVentas: (folio: string) => Promise<any[]>
     getHistorialMovimientos: (folio: string) => Promise<any[]>
@@ -28,5 +28,6 @@ interface Window {
     registrarVenta: (datos: any) => Promise<{ success: true }>
     getPrecioVentaPorTalla: (datos: { folio_producto: string, talla: string }) => Promise<{ precio_unitario_base: number }>
     eliminarVenta: (id_venta: number) => Promise<{ success: boolean }>
+    eliminarMovimientoCliente: (id_movimiento: number) => Promise<{ success: boolean }>
   }
 }

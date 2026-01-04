@@ -44,5 +44,6 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
   getProductosDisponibles: () => electron.ipcRenderer.invoke("get-productos-disponibles"),
   registrarVenta: (datos) => electron.ipcRenderer.invoke("registrar-venta", datos),
   getPrecioVentaPorTalla: (datos) => electron.ipcRenderer.invoke("get-precio-venta-por-talla", datos),
-  eliminarVenta: (id_venta) => electron.ipcRenderer.invoke("eliminar-venta", id_venta)
+  eliminarVenta: (id_venta) => electron.ipcRenderer.invoke("eliminar-venta", id_venta),
+  eliminarMovimientoCliente: (id_movimiento) => electron.ipcRenderer.invoke("eliminar-movimiento-cliente", id_movimiento)
 });

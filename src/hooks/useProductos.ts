@@ -11,6 +11,7 @@ export interface Producto {
   proveedor: string | null
   fecha_ultima_actualizacion: string
   tallas_detalle: { talla: string; cantidad: number }[]
+  ultimo_precio?: number
 }
 
 export function useProductos() {

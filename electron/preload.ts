@@ -47,4 +47,5 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   registrarVenta: (datos: any) => ipcRenderer.invoke('registrar-venta', datos),
   getPrecioVentaPorTalla: (datos: { folio_producto: string, talla: string }) => ipcRenderer.invoke('get-precio-venta-por-talla', datos),
   eliminarVenta: (id_venta: number) => ipcRenderer.invoke('eliminar-venta', id_venta),
+  eliminarMovimientoCliente: (id_movimiento: number) => ipcRenderer.invoke('eliminar-movimiento-cliente', id_movimiento),
 })

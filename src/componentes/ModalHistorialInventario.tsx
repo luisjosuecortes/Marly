@@ -19,6 +19,7 @@ interface Movimiento {
   tipo_movimiento?: string
   responsable?: string | null
   cliente?: string | null
+  saldo_pendiente?: number
 }
 
 export function ModalHistorialInventario({ folio, nombreProducto, alCerrar }: PropsModalHistorialInventario) {
@@ -79,12 +80,12 @@ export function ModalHistorialInventario({ folio, nombreProducto, alCerrar }: Pr
               <table>
                 <thead>
                   <tr>
-                    <th>Fecha</th>
-                    <th>Tipo</th>
-                    <th>Cantidad</th>
-                    <th>Talla</th>
-                    <th>Precio/Costo</th>
-                    <th>Detalles</th>
+                    <th style={{ textAlign: 'center' }}>Fecha</th>
+                    <th style={{ textAlign: 'center' }}>Tipo</th>
+                    <th style={{ textAlign: 'center' }}>Cantidad</th>
+                    <th style={{ textAlign: 'center' }}>Talla</th>
+                    <th style={{ textAlign: 'center' }}>Precio/Costo</th>
+                    <th style={{ textAlign: 'center' }}>Detalles</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -126,9 +127,16 @@ export function ModalHistorialInventario({ folio, nombreProducto, alCerrar }: Pr
                             </div>
                           </div>
                         ) : (
-                          <div style={{ color: '#22c55e', fontWeight: 700, fontSize: '0.9rem' }}>
-                            <DollarSign size={12} style={{ display: 'inline' }} />
-                            {(mov.precio_unitario || 0).toFixed(2)}
+                          <div style={{ fontSize: '0.9rem' }}>
+                            <div style={{ color: '#22c55e', fontWeight: 700 }}>
+                              <DollarSign size={12} style={{ display: 'inline' }} />
+                              {(mov.precio_unitario || 0).toFixed(2)}
+                            </div>
+                            {mov.saldo_pendiente !== undefined && mov.saldo_pendiente > 0 && (
+                              <div style={{ color: '#facc15', marginTop: '0.25rem', fontSize: '0.8rem', fontWeight: 600 }}>
+                                Pendiente: ${(mov.saldo_pendiente).toFixed(2)}
+                              </div>
+                            )}
                           </div>
                         )}
                       </td>

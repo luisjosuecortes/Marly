@@ -210,7 +210,6 @@ export function ModalProductosPendientes({
   // Calcular saldo "huérfano" (no atribuible a productos específicos)
   // Usamos un pequeño margen de error por decimales
   const saldoHuerfano = Math.max(0, saldoActual - totalDeudaProductos)
-  const mostrarBotonAbonoGeneral = saldoHuerfano > 0.01
 
   return (
     <div className="modal-overlay" onClick={alCerrar}>
@@ -220,23 +219,8 @@ export function ModalProductosPendientes({
             <h3>Productos Pendientes</h3>
             <p className="folio-modal">{nombreCliente}</p>
             <p style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: '#94a3b8' }}>
-              Saldo pendiente: <strong style={{ color: '#fbbf24' }}>{formatearMoneda(saldoActual)}</strong>
+              Saldo Total: <strong style={{ color: '#fbbf24' }}>{formatearMoneda(saldoActual)}</strong>
             </p>
-            {mostrarBotonAbonoGeneral && (
-              <button
-                className={`btn-abono-general ${mostrarAbonoGeneral ? 'cancelar' : ''}`}
-                onClick={() => {
-                  setMostrarAbonoGeneral(!mostrarAbonoGeneral)
-                  setMostrarAbono(null)
-                  setMontoAbono('')
-                  setResponsable('')
-                  setError(null)
-                }}
-              >
-                <DollarSign size={14} />
-                {mostrarAbonoGeneral ? 'Cancelar Abono' : 'Abonar a Saldo Huérfano'}
-              </button>
-            )}
           </div>
           <button className="boton-cerrar-modal" onClick={alCerrar}>
             <X size={20} />
@@ -301,6 +285,89 @@ export function ModalProductosPendientes({
             </div>
           ) : (
             <div className="lista-productos-pendientes">
+              {/* Saldo Huérfano como tarjeta */}
+              {saldoHuerfano > 0.01 && (
+                <div className="producto-pendiente-card saldo-huerfano-card">
+                  <div className="producto-pendiente-header-compacto">
+                    <div className="producto-info-compacta">
+                      <h4 className="nombre-producto-compacto" style={{ color: '#fbbf24' }}>
+                        💰 Saldo Inicial de Cuenta
+                      </h4>
+                      <div className="detalles-inline">
+                        <span className="detalle-inline">
+                          <span className="detalle-label-inline">Pendiente:</span>
+                          <span style={{ fontWeight: 700, color: '#fbbf24' }}>
+                            {formatearMoneda(saldoHuerfano)}
+                          </span>
+                        </span>
+                      </div>
+                      <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>
+                        Este saldo no está vinculado a ningún producto específico
+                      </p>
+                    </div>
+                    <div className="acciones-compactas">
+                      <span className="badge-tipo-compacto badge-saldo-huerfano">
+                        Saldo Inicial
+                      </span>
+                      <button
+                        className="btn-abonar-compacto"
+                        onClick={() => {
+                          setMostrarAbonoGeneral(!mostrarAbonoGeneral)
+                          setMostrarAbono(null)
+                          setMontoAbono('')
+                          setResponsable('')
+                          setError(null)
+                        }}
+                        disabled={guardando}
+                      >
+                        <DollarSign size={14} />
+                        <span>{mostrarAbonoGeneral ? 'Cancelar' : 'Abonar'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {mostrarAbonoGeneral && (
+                    <div className="formulario-abono-compacto">
+                      <div className="fila-abono">
+                        <div className="input-abono-compacto">
+                          <label className="label-abono">
+                            Monto
+                            <span className="hint-abono">
+                              (Máx: {formatearMoneda(saldoHuerfano)})
+                            </span>
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            max={saldoHuerfano}
+                            value={montoAbono}
+                            onChange={(e) => setMontoAbono(e.target.value)}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="input-abono-compacto">
+                          <label className="label-abono">Responsable</label>
+                          <input
+                            type="text"
+                            value={responsable}
+                            onChange={(e) => setResponsable(e.target.value)}
+                            placeholder="Nombre"
+                          />
+                        </div>
+                        <button
+                          className="btn-confirmar-abono-compacto"
+                          onClick={manejarAbonoGeneral}
+                          disabled={guardando || !montoAbono || !responsable.trim()}
+                        >
+                          {guardando ? '...' : 'Confirmar'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {productos.map((producto) => (
                 <div key={producto.id_venta} className="producto-pendiente-card">
                   <div className="producto-pendiente-header-compacto">

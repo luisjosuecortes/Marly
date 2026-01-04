@@ -96,14 +96,14 @@ export function ModalHistorialEntradas({ folio, nombreProducto, alCerrar }: Prop
               <table>
                 <thead>
                   <tr>
-                    <th>Fecha</th>
-                    <th>Cantidad</th>
-                    <th>Talla</th>
-                    <th>Compra</th>
-                    <th>Venta</th>
-                    <th>Ganancia</th>
-                    <th>Tipo</th>
-                    <th>Acciones</th>
+                    <th style={{ textAlign: 'center' }}>Fecha</th>
+                    <th style={{ textAlign: 'center' }}>Cantidad</th>
+                    <th style={{ textAlign: 'center' }}>Talla</th>
+                    <th style={{ textAlign: 'center' }}>Compra</th>
+                    <th style={{ textAlign: 'center' }}>Venta</th>
+                    <th style={{ textAlign: 'center' }}>Ganancia</th>
+                    <th style={{ textAlign: 'center' }}>Tipo</th>
+                    <th style={{ textAlign: 'center' }}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>

@@ -27,13 +27,25 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .modal-header {
@@ -91,7 +103,8 @@
   padding: 1.5rem;
 }
 
-.cargando, .sin-productos {
+.cargando,
+.sin-productos {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -164,7 +177,7 @@
   font-weight: 600;
 }
 
-.detalle-inline > span:last-child {
+.detalle-inline>span:last-child {
   color: #f1f5f9;
   font-weight: 600;
 }
@@ -199,13 +212,30 @@
   border: 1px solid rgba(139, 92, 246, 0.4);
 }
 
+.badge-tipo-compacto.badge-saldo-huerfano {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+}
+
+.saldo-huerfano-card {
+  background: rgba(251, 191, 36, 0.05);
+  border-color: rgba(251, 191, 36, 0.3);
+}
+
+.saldo-huerfano-card:hover {
+  background: rgba(251, 191, 36, 0.1);
+  border-color: rgba(251, 191, 36, 0.4);
+}
+
 .badge-tipo-compacto.badge-prestado {
   background: rgba(59, 130, 246, 0.2);
   color: #60a5fa;
   border: 1px solid rgba(59, 130, 246, 0.4);
 }
 
-.btn-abonar-compacto, .btn-devolver-compacto {
+.btn-abonar-compacto,
+.btn-devolver-compacto {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -246,7 +276,8 @@
   transform: translateY(-1px);
 }
 
-.btn-abonar-compacto:disabled, .btn-devolver-compacto:disabled {
+.btn-abonar-compacto:disabled,
+.btn-devolver-compacto:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -385,7 +416,13 @@
 }
 
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
 
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

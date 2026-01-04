@@ -31,7 +31,8 @@ ipcMain.handle("get-productos", () => {
     const stmt = db.prepare(`
       SELECT 
         p.*, 
-        json_group_array(json_object('talla', tp.talla, 'cantidad', tp.cantidad)) as tallas_detalle
+        json_group_array(json_object('talla', tp.talla, 'cantidad', tp.cantidad)) as tallas_detalle,
+        (SELECT precio_unitario_base FROM entradas WHERE folio_producto = p.folio_producto ORDER BY id_entrada DESC LIMIT 1) as ultimo_precio
       FROM productos p
       LEFT JOIN tallas_producto tp ON p.folio_producto = tp.folio_producto
       GROUP BY p.folio_producto
@@ -48,17 +49,56 @@ ipcMain.handle("get-productos", () => {
   }
 });
 ipcMain.handle("actualizar-stock", (_event, datos) => {
-  const { folio_producto, nuevo_stock } = datos;
+  const { folio_producto, nuevo_stock, talla, motivo, responsable } = datos;
+  if (!talla) {
+    throw new Error("Es necesario especificar la talla para ajustar el stock.");
+  }
   const actualizar = db.transaction(() => {
-    const producto = db.prepare("SELECT stock_actual FROM productos WHERE folio_producto = ?").get(folio_producto);
-    if (!producto) throw new Error("Producto no encontrado");
-    const stmt = db.prepare(`
-      UPDATE productos 
-      SET stock_actual = @nuevo_stock,
-          fecha_ultima_actualizacion = CURRENT_TIMESTAMP
-      WHERE folio_producto = @folio_producto
+    const tallaActual = db.prepare("SELECT cantidad FROM tallas_producto WHERE folio_producto = ? AND talla = ?").get(folio_producto, talla);
+    const stockAnterior = tallaActual ? tallaActual.cantidad : 0;
+    const diferencia = nuevo_stock - stockAnterior;
+    if (diferencia === 0) return;
+    const stmtTalla = db.prepare(`
+      INSERT INTO tallas_producto (folio_producto, talla, cantidad, fecha_actualizacion)
+      VALUES (@folio, @talla, @cantidad, CURRENT_TIMESTAMP)
+      ON CONFLICT(folio_producto, talla) DO UPDATE SET
+        cantidad = @cantidad,
+        fecha_actualizacion = CURRENT_TIMESTAMP
     `);
-    stmt.run({ nuevo_stock, folio_producto });
+    stmtTalla.run({
+      folio: folio_producto,
+      talla,
+      cantidad: nuevo_stock
+    });
+    const stmtProducto = db.prepare(`
+      UPDATE productos 
+      SET stock_actual = stock_actual + @diferencia,
+          fecha_ultima_actualizacion = CURRENT_TIMESTAMP
+      WHERE folio_producto = @folio
+    `);
+    stmtProducto.run({
+      diferencia,
+      folio: folio_producto
+    });
+    const stmtHistorial = db.prepare(`
+      INSERT INTO entradas (
+        fecha_entrada, folio_producto, cantidad_recibida, talla, 
+        costo_unitario_proveedor, precio_unitario_base, 
+        tipo_movimiento, responsable_recepcion, observaciones_entrada
+      ) VALUES (
+        CURRENT_TIMESTAMP, @folio, @cantidad, @talla, 
+        0, 0, 
+        'Ajuste Manual', @responsable, @motivo
+      )
+    `);
+    stmtHistorial.run({
+      folio: folio_producto,
+      cantidad: diferencia,
+      // Puede ser negativo
+      talla,
+      responsable: responsable || "Sistema",
+      motivo: motivo || "Ajuste de inventario"
+    });
   });
   try {
     actualizar();
@@ -238,17 +278,10 @@ ipcMain.handle("get-historial-movimientos", (_event, folio) => {
         }
       }
       return {
-        tipo: venta.tipo,
-        id: venta.id,
-        fecha: venta.fecha,
-        cantidad: venta.cantidad,
-        talla: venta.talla,
-        costo_unitario: null,
-        precio_unitario: montoVendido,
-        // Mostrar monto vendido en lugar de precio unitario
-        tipo_movimiento: venta.tipo_movimiento,
-        responsable: venta.responsable,
-        cliente: venta.cliente
+        ...venta,
+        precio_unitario: venta.precio_unitario_real,
+        monto_vendido: montoVendido,
+        saldo_pendiente: montoTotal - montoVendido
       };
     });
     const movimientos = [...entradas, ...ventas].sort((a, b) => {
@@ -1138,6 +1171,43 @@ ipcMain.handle("eliminar-venta", (_event, id_venta) => {
     return eliminar();
   } catch (error) {
     console.error("Error al eliminar venta:", error);
+    throw error;
+  }
+});
+ipcMain.handle("eliminar-movimiento-cliente", (_event, id_movimiento) => {
+  const eliminar = db.transaction(() => {
+    const movimiento = db.prepare(`
+      SELECT 
+        id_cliente,
+        tipo_movimiento,
+        monto,
+        referencia
+      FROM movimientos_cliente
+      WHERE id_movimiento = ?
+    `).get(id_movimiento);
+    if (!movimiento) {
+      throw new Error("Movimiento no encontrado.");
+    }
+    const ajuste = movimiento.tipo_movimiento === "cargo" ? -movimiento.monto : movimiento.monto;
+    db.prepare(`
+      UPDATE clientes 
+      SET saldo_pendiente = saldo_pendiente + @ajuste,
+          estado_cuenta = CASE 
+            WHEN saldo_pendiente + @ajuste > 0 THEN 'Con saldo'
+            ELSE 'Al corriente'
+          END
+      WHERE id_cliente = @id_cliente
+    `).run({
+      ajuste,
+      id_cliente: movimiento.id_cliente
+    });
+    db.prepare("DELETE FROM movimientos_cliente WHERE id_movimiento = ?").run(id_movimiento);
+    return { success: true };
+  });
+  try {
+    return eliminar();
+  } catch (error) {
+    console.error("Error al eliminar movimiento de cliente:", error);
     throw error;
   }
 });

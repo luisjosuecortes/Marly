@@ -7,12 +7,12 @@ import './Inventario.css'
 
 export function Inventario() {
   const { productos, cargando, error, recargarProductos } = useProductos()
-  
+
   // Filtros
   const [busqueda, setBusqueda] = useState('')
   const [categoria, setCategoria] = useState('Todas')
   const [talla, setTalla] = useState('Todas')
-  
+
   // Modales
   const [productoAEditar, setProductoAEditar] = useState<any | null>(null)
   const [productoHistorial, setProductoHistorial] = useState<any | null>(null)
@@ -23,28 +23,29 @@ export function Inventario() {
 
   const productosFiltrados = useMemo(() => {
     return productos.filter(p => {
-      const coincideBusqueda = 
+      const coincideBusqueda =
         p.folio_producto.toLowerCase().includes(busqueda.toLowerCase()) ||
         p.nombre_producto.toLowerCase().includes(busqueda.toLowerCase())
-      
+
       const coincideCategoria = categoria === 'Todas' || p.categoria === categoria
-      
+
       const coincideTalla = talla === 'Todas' || (p.tallas_detalle && p.tallas_detalle.some(t => t.talla === talla))
 
       return coincideBusqueda && coincideCategoria && coincideTalla
     })
   }, [productos, busqueda, categoria, talla])
 
-  const manejarGuardarAjuste = async (nuevoStock: number, motivo: string) => {
+  const manejarGuardarAjuste = async (nuevoStock: number, motivo: string, talla: string) => {
     if (!productoAEditar) return
-    
+
     await window.ipcRenderer.actualizarStock({
       folio_producto: productoAEditar.folio_producto,
       nuevo_stock: nuevoStock,
+      talla,
       motivo,
       responsable: 'Admin' // Podríamos pasar el usuario real si hubiera login
     })
-    
+
     await recargarProductos()
   }
 
@@ -66,7 +67,7 @@ export function Inventario() {
   return (
     <div className="pagina-contenido">
       {productoAEditar && (
-        <ModalAjuste 
+        <ModalAjuste
           producto={productoAEditar}
           alCerrar={() => setProductoAEditar(null)}
           alGuardar={manejarGuardarAjuste}
@@ -93,14 +94,14 @@ export function Inventario() {
           <div className="filtros-container">
             <div className="input-busqueda-inventario">
               <Search size={18} className="icono-busqueda" />
-              <input 
-                type="text" 
-                placeholder="Buscar por folio o nombre..." 
+              <input
+                type="text"
+                placeholder="Buscar por folio o nombre..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
               />
             </div>
-            
+
             <div className="grupo-filtro">
               <Filter size={16} />
               <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
@@ -126,7 +127,7 @@ export function Inventario() {
                 </p>
               </div>
             ) : productosFiltrados.length === 0 ? (
-               <div className="tabla-vacia">
+              <div className="tabla-vacia">
                 <Search size={48} strokeWidth={1} style={{ marginBottom: '1rem', opacity: 0.5 }} />
                 <p>No se encontraron productos con los filtros seleccionados.</p>
               </div>
@@ -135,57 +136,46 @@ export function Inventario() {
                 <table className="tabla-inventario">
                   <thead>
                     <tr>
-                      <th>Folio</th>
-                      <th>Producto</th>
-                      <th>Categoría</th>
-                      <th>Estado</th>
-                      <th>Detalle Tallas</th>
-                      <th>Stock Total</th>
-                      <th>Acciones</th>
+                      <th style={{ textAlign: 'center' }}>Folio</th>
+                      <th style={{ textAlign: 'center' }}>Producto</th>
+                      <th style={{ textAlign: 'center' }}>Categoría</th>
+                      <th style={{ textAlign: 'center' }}>Detalle Tallas</th>
+                      <th style={{ textAlign: 'center' }}>Stock Total</th>
+                      <th style={{ textAlign: 'center' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {productosFiltrados.map((producto) => (
                       <tr key={producto.folio_producto}>
-                        <td style={{ fontFamily: 'monospace', color: '#94a3b8' }}>
+                        <td style={{ fontFamily: 'monospace', color: '#94a3b8', textAlign: 'center' }}>
                           {producto.folio_producto}
                         </td>
-                        <td>{producto.nombre_producto || '0'}</td>
-                        <td>{producto.categoria}</td>
-                        <td>
-                          <span className={`estado-badge estado-${producto.estado_producto.toLowerCase()}`}>
-                            {producto.estado_producto}
-                          </span>
-                        </td>
-                         <td style={{ color: '#e2e8f0', fontSize: '0.85rem' }}>
+                        <td style={{ textAlign: 'center' }}>{producto.nombre_producto || '0'}</td>
+                        <td style={{ textAlign: 'center' }}>{producto.categoria}</td>
+                        <td style={{ color: '#cbd5e1', fontSize: '0.85rem', textAlign: 'center' }}>
                           {producto.tallas_detalle && producto.tallas_detalle.length > 0 ? (
-                            <div className="lista-tallas">
-                              {producto.tallas_detalle.map((t, idx) => (
-                                <span key={idx} className="talla-badge" title={`Talla: ${t.talla}, Cantidad: ${t.cantidad}`}>
-                                  <span className="talla-nombre">{t.talla}</span>
-                                  <span className="talla-cantidad">{t.cantidad}</span>
-                                </span>
-                              ))}
-                            </div>
+                            producto.tallas_detalle
+                              .map((t) => `${t.talla}: ${t.cantidad}`)
+                              .join(', ')
                           ) : (
                             <span style={{ color: '#94a3b8' }}>0</span>
                           )}
                         </td>
-                        <td style={{ fontWeight: 'bold', color: '#e2e8f0', fontSize: '1rem' }}>
+                        <td style={{ fontWeight: 'bold', color: '#e2e8f0', fontSize: '1rem', textAlign: 'center' }}>
                           {producto.stock_actual}
                         </td>
                         <td>
                           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center' }}>
-                            <button 
-                              className="btn-accion" 
+                            <button
+                              className="btn-accion"
                               title="Ver Historial de Movimientos"
                               onClick={() => setProductoHistorial(producto)}
                               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                             >
                               <History size={16} />
                             </button>
-                            <button 
-                              className="btn-accion" 
+                            <button
+                              className="btn-accion"
                               title="Ajustar Stock"
                               onClick={() => setProductoAEditar(producto)}
                               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}

@@ -30,23 +30,24 @@ export function Entradas() {
       await window.ipcRenderer.registrarNuevoProducto(datos)
       setMensajeExito('Producto registrado correctamente.')
     }
-    
+
     await recargarProductos()
     setExito(true)
     setTimeout(() => setExito(false), 3000)
     setMostrarFormulario(false)
   }
 
-  const manejarGuardarAjuste = async (nuevoStock: number, motivo: string) => {
+  const manejarGuardarAjuste = async (nuevoStock: number, motivo: string, talla: string) => {
     if (!productoAEditar) return
-    
+
     await window.ipcRenderer.actualizarStock({
       folio_producto: productoAEditar.folio_producto,
       nuevo_stock: nuevoStock,
+      talla,
       motivo,
       responsable: 'Admin'
     })
-    
+
     await recargarProductos()
     setMensajeExito('Stock ajustado correctamente.')
     setExito(true)
@@ -59,13 +60,13 @@ export function Entradas() {
 
   const productosFiltrados = useMemo(() => {
     return productos.filter(p => {
-      const coincideBusqueda = 
+      const coincideBusqueda =
         !busqueda.trim() ||
         p.folio_producto.toLowerCase().includes(busqueda.trim().toLowerCase()) ||
         (p.nombre_producto ?? '').toLowerCase().includes(busqueda.trim().toLowerCase())
-      
+
       const coincideCategoria = categoria === 'Todas' || p.categoria === categoria
-      
+
       const coincideTalla = talla === 'Todas' || (p.tallas_detalle && p.tallas_detalle.some(t => t.talla === talla))
 
       return coincideBusqueda && coincideCategoria && coincideTalla
@@ -115,14 +116,14 @@ export function Entradas() {
           <div className="filtros-container">
             <div className="input-busqueda-inventario">
               <Search size={18} className="icono-busqueda" />
-              <input 
-                type="text" 
-                placeholder="Buscar por folio o nombre..." 
+              <input
+                type="text"
+                placeholder="Buscar por folio o nombre..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
               />
             </div>
-            
+
             <div className="grupo-filtro">
               <Filter size={16} />
               <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
@@ -160,52 +161,47 @@ export function Entradas() {
                 <table className="tabla-inventario">
                   <thead>
                     <tr>
-                      <th>Folio</th>
-                      <th>Producto</th>
-                      <th>Categoría</th>
-                      <th>Detalle Tallas</th>
-                      <th>Stock Total</th>
-                      <th>Proveedor</th>
-                      <th>Acciones</th>
+                      <th style={{ textAlign: 'center' }}>Folio</th>
+                      <th style={{ textAlign: 'center' }}>Producto</th>
+                      <th style={{ textAlign: 'center' }}>Categoría</th>
+                      <th style={{ textAlign: 'center' }}>Detalle Tallas</th>
+                      <th style={{ textAlign: 'center' }}>Stock Total</th>
+                      <th style={{ textAlign: 'center' }}>Proveedor</th>
+                      <th style={{ textAlign: 'center' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {productosFiltrados.map((producto) => (
                       <tr key={producto.folio_producto}>
-                        <td style={{ fontFamily: 'monospace', color: '#94a3b8' }}>
+                        <td style={{ fontFamily: 'monospace', color: '#94a3b8', textAlign: 'center' }}>
                           {producto.folio_producto}
                         </td>
-                        <td>{producto.nombre_producto || '0'}</td>
-                        <td>{producto.categoria}</td>
-                        <td style={{ color: '#e2e8f0', fontSize: '0.85rem' }}>
+                        <td style={{ textAlign: 'center' }}>{producto.nombre_producto || '0'}</td>
+                        <td style={{ textAlign: 'center' }}>{producto.categoria}</td>
+                        <td style={{ color: '#cbd5e1', fontSize: '0.85rem', textAlign: 'center' }}>
                           {producto.tallas_detalle && producto.tallas_detalle.length > 0 ? (
-                            <div className="lista-tallas">
-                              {producto.tallas_detalle.map((t: any, idx: number) => (
-                                <span key={idx} className="talla-badge" title={`Talla: ${t.talla}, Cantidad: ${t.cantidad}`}>
-                                  <span className="talla-nombre">{t.talla}</span>
-                                  <span className="talla-cantidad">{t.cantidad}</span>
-                                </span>
-                              ))}
-                            </div>
+                            producto.tallas_detalle
+                              .map((t: any) => `${t.talla}: ${t.cantidad}`)
+                              .join(', ')
                           ) : (
                             <span style={{ color: '#94a3b8' }}>0</span>
                           )}
                         </td>
-                        <td style={{ fontWeight: 'bold', color: '#e2e8f0', fontSize: '1rem' }}>
+                        <td style={{ fontWeight: 'bold', color: '#e2e8f0', fontSize: '1rem', textAlign: 'center' }}>
                           {producto.stock_actual}
                         </td>
-                        <td style={{ color: '#cbd5e1' }}>{producto.proveedor || '0'}</td>
+                        <td style={{ color: '#cbd5e1', textAlign: 'center' }}>{producto.proveedor || '0'}</td>
                         <td>
                           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-                            <button 
-                              className="btn-accion" 
+                            <button
+                              className="btn-accion"
                               title="Ver Historial de Entradas y Precios"
                               onClick={() => setProductoHistorial(producto)}
                             >
                               <History size={16} />
                             </button>
-                            <button 
-                              className="btn-accion" 
+                            <button
+                              className="btn-accion"
                               title="Ajustar Stock"
                               onClick={() => setProductoAEditar(producto)}
                             >
@@ -221,11 +217,11 @@ export function Entradas() {
             )}
           </div>
         </div>
-        
+
         {mostrarFormulario && (
           <div className="columna-formulario">
-            <FormularioProducto 
-              alGuardar={manejarGuardar} 
+            <FormularioProducto
+              alGuardar={manejarGuardar}
               alCerrar={() => setMostrarFormulario(false)}
             />
           </div>
@@ -245,7 +241,7 @@ export function Entradas() {
       )}
 
       {productoAEditar && (
-        <ModalAjuste 
+        <ModalAjuste
           producto={productoAEditar}
           alCerrar={() => setProductoAEditar(null)}
           alGuardar={manejarGuardarAjuste}

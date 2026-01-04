@@ -96,15 +96,15 @@ export function ModalHistorialVentas({ folio, nombreProducto, alCerrar }: PropsM
               <table>
                 <thead>
                   <tr>
-                    <th>Fecha</th>
-                    <th>Cantidad</th>
-                    <th>Talla</th>
-                    <th>Precio Unit.</th>
-                    <th>Vendido</th>
-                    <th>Pendiente</th>
-                    <th>Tipo</th>
-                    <th>Cliente</th>
-                    <th>Acciones</th>
+                    <th style={{ textAlign: 'center' }}>Fecha</th>
+                    <th style={{ textAlign: 'center' }}>Cantidad</th>
+                    <th style={{ textAlign: 'center' }}>Talla</th>
+                    <th style={{ textAlign: 'center' }}>Precio Unit.</th>
+                    <th style={{ textAlign: 'center' }}>Vendido</th>
+                    <th style={{ textAlign: 'center' }}>Pendiente</th>
+                    <th style={{ textAlign: 'center' }}>Tipo</th>
+                    <th style={{ textAlign: 'center' }}>Cliente</th>
+                    <th style={{ textAlign: 'center' }}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -153,7 +153,9 @@ export function ModalHistorialVentas({ folio, nombreProducto, alCerrar }: PropsM
                               {venta.nombre_cliente}
                             </span>
                           ) : (
-                            '0'
+                            <span style={{ color: '#64748b', fontStyle: 'italic' }}>
+                              Público General
+                            </span>
                           )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
