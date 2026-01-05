@@ -52,6 +52,13 @@ interface Window {
       cantidad: number
       monto_total: number
     }>>
+    getVentasComparativas: (params: {
+      tipo: 'mes' | 'semana' | 'anio',
+      periodos: string[]
+    }) => Promise<Record<string, {
+      puntos: Array<{ x: number | string, y: number }>,
+      total: number
+    }>>
     getClientesConSaldo: () => Promise<Array<{
       id_cliente: number
       nombre_completo: string

@@ -1373,6 +1373,83 @@ ipcMain.handle("get-ventas-por-tipo", (_event, filtro = {}) => {
   `).all(fechaInicio, fechaFin);
   return tipos;
 });
+ipcMain.handle("get-ventas-comparativas", (_event, params) => {
+  const { tipo, periodos } = params;
+  const resultados = {};
+  for (const periodo of periodos) {
+    let dateStart;
+    let dateEnd;
+    let puntos = [];
+    if (tipo === "mes") {
+      const [year, month] = periodo.split("-").map(Number);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      dateStart = `${year}-${String(month).padStart(2, "0")}-01`;
+      dateEnd = `${year}-${String(month).padStart(2, "0")}-${daysInMonth}`;
+      const ventas = db.prepare(`
+        SELECT 
+          CAST(strftime('%d', fecha_venta) AS INTEGER) as dia,
+          COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as ganancia
+        FROM ventas
+        WHERE DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
+        GROUP BY strftime('%d', fecha_venta)
+        ORDER BY dia
+      `).all(dateStart, dateEnd);
+      for (let d = 1; d <= 31; d++) {
+        const found = ventas.find((v) => v.dia === d);
+        puntos.push({ x: d, y: found ? found.ganancia : 0 });
+      }
+    } else if (tipo === "semana") {
+      const [year, weekStr] = periodo.split("-W");
+      const weekNum = parseInt(weekStr);
+      const jan4 = new Date(parseInt(year), 0, 4);
+      const dayOfWeek = jan4.getDay() || 7;
+      const firstMonday = new Date(jan4);
+      firstMonday.setDate(jan4.getDate() - dayOfWeek + 1);
+      const weekStart = new Date(firstMonday);
+      weekStart.setDate(firstMonday.getDate() + (weekNum - 1) * 7);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+      dateStart = weekStart.toISOString().split("T")[0];
+      dateEnd = weekEnd.toISOString().split("T")[0];
+      const diasSemana = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+      const ventas = db.prepare(`
+        SELECT 
+          CAST(strftime('%w', fecha_venta) AS INTEGER) as dia_semana,
+          COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as ganancia
+        FROM ventas
+        WHERE DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
+        GROUP BY strftime('%w', fecha_venta)
+        ORDER BY dia_semana
+      `).all(dateStart, dateEnd);
+      for (let d = 0; d < 7; d++) {
+        const sqlDow = d === 6 ? 0 : d + 1;
+        const found = ventas.find((v) => v.dia_semana === sqlDow);
+        puntos.push({ x: diasSemana[d], y: found ? found.ganancia : 0 });
+      }
+    } else if (tipo === "anio") {
+      const year = parseInt(periodo);
+      dateStart = `${year}-01-01`;
+      dateEnd = `${year}-12-31`;
+      const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+      const ventas = db.prepare(`
+        SELECT 
+          CAST(strftime('%m', fecha_venta) AS INTEGER) as mes,
+          COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as ganancia
+        FROM ventas
+        WHERE DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
+        GROUP BY strftime('%m', fecha_venta)
+        ORDER BY mes
+      `).all(dateStart, dateEnd);
+      for (let m = 1; m <= 12; m++) {
+        const found = ventas.find((v) => v.mes === m);
+        puntos.push({ x: meses[m - 1], y: found ? found.ganancia : 0 });
+      }
+    }
+    const total = puntos.reduce((sum, p) => sum + p.y, 0);
+    resultados[periodo] = { puntos, total };
+  }
+  return resultados;
+});
 ipcMain.handle("get-clientes-con-saldo", () => {
   const clientes = db.prepare(`
     SELECT 

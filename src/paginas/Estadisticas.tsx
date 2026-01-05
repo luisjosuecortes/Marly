@@ -66,6 +66,30 @@ export function Estadisticas() {
   const [ventasTipo, setVentasTipo] = useState<VentaTipo[]>([])
   const [clientesConSaldo, setClientesConSaldo] = useState<ClienteSaldo[]>([])
 
+  // Comparison chart state
+  const getCurrentMonth = () => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  }
+
+  const getCurrentYear = () => {
+    return String(new Date().getFullYear())
+  }
+
+  const getCurrentWeek = () => {
+    const d = new Date()
+    d.setHours(0, 0, 0, 0)
+    d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7)
+    const week1 = new Date(d.getFullYear(), 0, 4)
+    const weekNumber = 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
+    return `${d.getFullYear()}-W${String(weekNumber).padStart(2, '0')}`
+  }
+
+  const [modoComparacion, setModoComparacion] = useState<'mes' | 'semana' | 'anio'>('mes')
+  const [periodosSeleccionados, setPeriodosSeleccionados] = useState<string[]>([getCurrentMonth()])
+  const [datosComparacion, setDatosComparacion] = useState<Record<string, { puntos: Array<{ x: number | string, y: number }>, total: number }>>({})
+  const [cargandoComparacion, setCargandoComparacion] = useState(false)
+
   const { fechaInicio, fechaFin, agrupacionActual } = useMemo(() => {
     const hoy = new Date()
     let inicio: Date
@@ -169,6 +193,30 @@ export function Estadisticas() {
   useEffect(() => {
     cargarDatos()
   }, [fechaInicio, fechaFin])
+
+  // Cargar datos comparativos
+  const cargarDatosComparacion = async () => {
+    if (periodosSeleccionados.length === 0) {
+      setDatosComparacion({})
+      return
+    }
+    setCargandoComparacion(true)
+    try {
+      const datos = await window.ipcRenderer.getVentasComparativas({
+        tipo: modoComparacion,
+        periodos: periodosSeleccionados
+      })
+      setDatosComparacion(datos)
+    } catch (error) {
+      console.error('Error cargando comparación:', error)
+    } finally {
+      setCargandoComparacion(false)
+    }
+  }
+
+  useEffect(() => {
+    cargarDatosComparacion()
+  }, [modoComparacion, periodosSeleccionados])
 
   // Transformar etiquetas del período según el tipo de agrupación
   const transformarEtiqueta = (periodo: string): string => {
@@ -569,6 +617,186 @@ export function Estadisticas() {
               </table>
             ) : (<div className="sin-datos">No hay clientes con saldo pendiente</div>)}
           </div>
+        </div>
+
+        {/* Comparative Chart Section */}
+        <div className="seccion-comparacion">
+          <div className="seccion-header">
+            <h2 className="seccion-titulo"><Calendar size={20} /> Comparar Períodos de Ventas</h2>
+            <div className="modo-comparacion">
+              <button
+                className={`btn-modo ${modoComparacion === 'mes' ? 'activo' : ''}`}
+                onClick={() => { setModoComparacion('mes'); setPeriodosSeleccionados([getCurrentMonth()]) }}
+              >
+                Meses
+              </button>
+              <button
+                className={`btn-modo ${modoComparacion === 'anio' ? 'activo' : ''}`}
+                onClick={() => { setModoComparacion('anio'); setPeriodosSeleccionados([getCurrentYear()]) }}
+              >
+                Años
+              </button>
+              <button
+                className={`btn-modo ${modoComparacion === 'semana' ? 'activo' : ''}`}
+                onClick={() => { setModoComparacion('semana'); setPeriodosSeleccionados([getCurrentWeek()]) }}
+              >
+                Semanas
+              </button>
+            </div>
+          </div>
+
+          <div className="selector-periodos">
+            <span className="selector-label">Selecciona los períodos a comparar:</span>
+            <div className="periodos-disponibles">
+              {modoComparacion === 'mes' &&
+                Array.from({ length: 12 }, (_, i) => {
+                  const fecha = new Date(2026, i, 1)
+                  const valor = `2026-${String(i + 1).padStart(2, '0')}`
+                  const nombre = fecha.toLocaleDateString('es-MX', { month: 'short' })
+                  const seleccionado = periodosSeleccionados.includes(valor)
+                  return (
+                    <button
+                      key={valor}
+                      className={`chip-periodo ${seleccionado ? 'seleccionado' : ''}`}
+                      onClick={() => {
+                        if (seleccionado) {
+                          setPeriodosSeleccionados(prev => prev.filter(p => p !== valor))
+                        } else {
+                          setPeriodosSeleccionados(prev => [...prev, valor])
+                        }
+                      }}
+                    >
+                      {nombre.charAt(0).toUpperCase() + nombre.slice(1)}
+                    </button>
+                  )
+                })
+              }
+              {modoComparacion === 'semana' &&
+                Array.from({ length: 52 }, (_, i) => {
+                  const valor = `2026-W${String(i + 1).padStart(2, '0')}`
+                  const seleccionado = periodosSeleccionados.includes(valor)
+                  // Calculate week start date
+                  const jan4 = new Date(2026, 0, 4)
+                  const dayOfWeek = jan4.getDay() || 7
+                  const firstMonday = new Date(jan4)
+                  firstMonday.setDate(jan4.getDate() - dayOfWeek + 1)
+                  const weekStart = new Date(firstMonday)
+                  weekStart.setDate(firstMonday.getDate() + i * 7)
+                  const weekEnd = new Date(weekStart)
+                  weekEnd.setDate(weekStart.getDate() + 6)
+                  const formatDate = (d: Date) => `${d.getDate()}/${d.getMonth() + 1}`
+                  return (
+                    <button
+                      key={valor}
+                      className={`chip-periodo chip-semana ${seleccionado ? 'seleccionado' : ''}`}
+                      onClick={() => {
+                        if (seleccionado) {
+                          setPeriodosSeleccionados(prev => prev.filter(p => p !== valor))
+                        } else {
+                          setPeriodosSeleccionados(prev => [...prev, valor])
+                        }
+                      }}
+                    >
+                      <span className="semana-num">S{i + 1}</span>
+                      <span className="semana-fechas">{formatDate(weekStart)}-{formatDate(weekEnd)}</span>
+                    </button>
+                  )
+                })
+              }
+              {modoComparacion === 'anio' &&
+                Array.from({ length: new Date().getFullYear() - 2026 + 1 }, (_, i) => {
+                  const valor = String(2026 + i)
+                  const seleccionado = periodosSeleccionados.includes(valor)
+                  return (
+                    <button
+                      key={valor}
+                      className={`chip-periodo ${seleccionado ? 'seleccionado' : ''}`}
+                      onClick={() => {
+                        if (seleccionado) {
+                          setPeriodosSeleccionados(prev => prev.filter(p => p !== valor))
+                        } else {
+                          setPeriodosSeleccionados(prev => [...prev, valor])
+                        }
+                      }}
+                    >
+                      {valor}
+                    </button>
+                  )
+                })
+              }
+            </div>
+          </div>
+
+          {cargandoComparacion && <div className="cargando-comparacion">Cargando datos...</div>}
+
+          {Object.keys(datosComparacion).length > 0 && (
+            <div className="grafico-comparacion">
+              <Plot
+                data={Object.entries(datosComparacion).map(([periodo, data]) => ({
+                  x: data.puntos.map(p => p.x),
+                  y: data.puntos.map(p => p.y),
+                  type: 'scatter' as const,
+                  mode: 'lines+markers' as const,
+                  name: modoComparacion === 'mes'
+                    ? new Date(parseInt(periodo.split('-')[0]), parseInt(periodo.split('-')[1]) - 1).toLocaleDateString('es-MX', { month: 'long' })
+                    : modoComparacion === 'semana'
+                      ? `Semana ${periodo.split('-W')[1]}`
+                      : periodo,
+                  line: { width: 2 },
+                  marker: { size: 6 }
+                }))}
+                layout={{
+                  ...layoutBase,
+                  title: {
+                    text: modoComparacion === 'mes'
+                      ? 'Ganancias por Día del Mes'
+                      : modoComparacion === 'semana'
+                        ? 'Ganancias por Día de la Semana'
+                        : 'Ganancias por Mes del Año',
+                    font: { color: '#f8fafc' }
+                  },
+                  xaxis: {
+                    ...layoutBase.xaxis,
+                    title: { text: modoComparacion === 'mes' ? 'Día' : modoComparacion === 'semana' ? 'Día' : 'Mes', font: { color: '#94a3b8' } }
+                  },
+                  yaxis: { ...layoutBase.yaxis, title: { text: 'Ganancias ($)', font: { color: '#94a3b8' } } },
+                  showlegend: true,
+                  legend: {
+                    orientation: 'h' as const,
+                    y: -0.2,
+                    font: { color: '#94a3b8' }
+                  }
+                }}
+                config={{ responsive: true, displayModeBar: false }}
+                style={{ width: '100%', height: '400px' }}
+              />
+
+              {/* Summary */}
+              <div className="resumen-comparacion">
+                {Object.entries(datosComparacion)
+                  .sort((a, b) => b[1].total - a[1].total)
+                  .map(([periodo, data], index) => (
+                    <div key={periodo} className={`resumen-item ${index === 0 ? 'mejor' : ''}`}>
+                      <span className="resumen-periodo">
+                        {modoComparacion === 'mes'
+                          ? new Date(parseInt(periodo.split('-')[0]), parseInt(periodo.split('-')[1]) - 1).toLocaleDateString('es-MX', { month: 'long' })
+                          : modoComparacion === 'semana'
+                            ? `Semana ${periodo.split('-W')[1]}`
+                            : periodo}
+                      </span>
+                      <span className="resumen-total">{formatearMoneda(data.total)}</span>
+                      {index === 0 && <span className="badge-mejor">Mejor</span>}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {periodosSeleccionados.length === 0 && !cargandoComparacion && (
+            <div className="sin-datos-comparacion">
+              Selecciona períodos para comparar
+            </div>
+          )}
         </div>
       </div>
     </div>

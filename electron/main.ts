@@ -1718,6 +1718,111 @@ ipcMain.handle('get-ventas-por-tipo', (_event, filtro: { fechaInicio?: string, f
   return tipos
 })
 
+// Ventas comparativas por período
+ipcMain.handle('get-ventas-comparativas', (_event, params: {
+  tipo: 'mes' | 'semana' | 'anio',
+  periodos: string[]
+}) => {
+  const { tipo, periodos } = params
+  const resultados: Record<string, { puntos: Array<{ x: number | string, y: number }>, total: number }> = {}
+
+  for (const periodo of periodos) {
+    let dateStart: string
+    let dateEnd: string
+    let puntos: Array<{ x: number | string, y: number }> = []
+
+    if (tipo === 'mes') {
+      // periodo format: '2026-01'
+      const [year, month] = periodo.split('-').map(Number)
+      const daysInMonth = new Date(year, month, 0).getDate()
+      dateStart = `${year}-${String(month).padStart(2, '0')}-01`
+      dateEnd = `${year}-${String(month).padStart(2, '0')}-${daysInMonth}`
+
+      // Get sales by day of month
+      const ventas = db.prepare(`
+        SELECT 
+          CAST(strftime('%d', fecha_venta) AS INTEGER) as dia,
+          COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as ganancia
+        FROM ventas
+        WHERE DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
+        GROUP BY strftime('%d', fecha_venta)
+        ORDER BY dia
+      `).all(dateStart, dateEnd) as Array<{ dia: number, ganancia: number }>
+
+      // Fill all 31 days (missing days = 0)
+      for (let d = 1; d <= 31; d++) {
+        const found = ventas.find(v => v.dia === d)
+        puntos.push({ x: d, y: found ? found.ganancia : 0 })
+      }
+
+    } else if (tipo === 'semana') {
+      // periodo format: '2026-W01'
+      const [year, weekStr] = periodo.split('-W')
+      const weekNum = parseInt(weekStr)
+
+      // Calculate start of week (ISO week starts on Monday)
+      const jan4 = new Date(parseInt(year), 0, 4)
+      const dayOfWeek = jan4.getDay() || 7
+      const firstMonday = new Date(jan4)
+      firstMonday.setDate(jan4.getDate() - dayOfWeek + 1)
+
+      const weekStart = new Date(firstMonday)
+      weekStart.setDate(firstMonday.getDate() + (weekNum - 1) * 7)
+      const weekEnd = new Date(weekStart)
+      weekEnd.setDate(weekStart.getDate() + 6)
+
+      dateStart = weekStart.toISOString().split('T')[0]
+      dateEnd = weekEnd.toISOString().split('T')[0]
+
+      const diasSemana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
+      const ventas = db.prepare(`
+        SELECT 
+          CAST(strftime('%w', fecha_venta) AS INTEGER) as dia_semana,
+          COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as ganancia
+        FROM ventas
+        WHERE DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
+        GROUP BY strftime('%w', fecha_venta)
+        ORDER BY dia_semana
+      `).all(dateStart, dateEnd) as Array<{ dia_semana: number, ganancia: number }>
+
+      // Map Sunday=0 to index 6, Monday=1 to index 0, etc.
+      for (let d = 0; d < 7; d++) {
+        const sqlDow = d === 6 ? 0 : d + 1 // Convert 0-6 (Mon-Sun) to SQL (0=Sun, 1=Mon...)
+        const found = ventas.find(v => v.dia_semana === sqlDow)
+        puntos.push({ x: diasSemana[d], y: found ? found.ganancia : 0 })
+      }
+
+    } else if (tipo === 'anio') {
+      // periodo format: '2026'
+      const year = parseInt(periodo)
+      dateStart = `${year}-01-01`
+      dateEnd = `${year}-12-31`
+
+      const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+      const ventas = db.prepare(`
+        SELECT 
+          CAST(strftime('%m', fecha_venta) AS INTEGER) as mes,
+          COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as ganancia
+        FROM ventas
+        WHERE DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
+        GROUP BY strftime('%m', fecha_venta)
+        ORDER BY mes
+      `).all(dateStart, dateEnd) as Array<{ mes: number, ganancia: number }>
+
+      for (let m = 1; m <= 12; m++) {
+        const found = ventas.find(v => v.mes === m)
+        puntos.push({ x: meses[m - 1], y: found ? found.ganancia : 0 })
+      }
+    }
+
+    // Calculate total
+    const total = puntos.reduce((sum, p) => sum + p.y, 0)
+    resultados[periodo] = { puntos, total }
+  }
+
+  return resultados
+})
+
 // Clientes con saldo pendiente
 ipcMain.handle('get-clientes-con-saldo', () => {
   const clientes = db.prepare(`

@@ -54,6 +54,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   getProductosMasVendidos: (filtro?: { fechaInicio?: string, fechaFin?: string, limite?: number }) => ipcRenderer.invoke('get-productos-mas-vendidos', filtro || {}),
   getVentasPorCategoria: (filtro?: { fechaInicio?: string, fechaFin?: string }) => ipcRenderer.invoke('get-ventas-por-categoria', filtro || {}),
   getVentasPorTipo: (filtro?: { fechaInicio?: string, fechaFin?: string }) => ipcRenderer.invoke('get-ventas-por-tipo', filtro || {}),
+  getVentasComparativas: (params: { tipo: 'mes' | 'semana' | 'anio', periodos: string[] }) => ipcRenderer.invoke('get-ventas-comparativas', params),
   getClientesConSaldo: () => ipcRenderer.invoke('get-clientes-con-saldo'),
   // Inventario - KPIs y Categorías
   getInventarioKpis: () => ipcRenderer.invoke('get-inventario-kpis'),
