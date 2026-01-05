@@ -59,6 +59,9 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   getInventarioKpis: () => ipcRenderer.invoke('get-inventario-kpis'),
   getInventarioPorCategoria: () => ipcRenderer.invoke('get-inventario-por-categoria'),
   getProductosPorCategoria: (categoria: string) => ipcRenderer.invoke('get-productos-por-categoria', categoria),
+
+  getProductosBajoStock: () => ipcRenderer.invoke('get-productos-bajo-stock'),
+  updateStockMinimo: (data: { folio_producto: string, stock_minimo: number }) => ipcRenderer.invoke('update-stock-minimo', data),
   // Entradas - KPIs y Timeline
   getEntradasKpis: () => ipcRenderer.invoke('get-entradas-kpis'),
   getEntradasRecientes: (limite: number = 20) => ipcRenderer.invoke('get-entradas-recientes', limite),

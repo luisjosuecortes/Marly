@@ -1815,6 +1815,43 @@ ipcMain.handle('get-inventario-kpis', () => {
   }
 })
 
+// Obtener productos con bajo stock
+ipcMain.handle('get-productos-bajo-stock', () => {
+  try {
+    const productos = db.prepare(`
+      SELECT 
+        folio_producto,
+        nombre_producto,
+        categoria,
+        stock_actual,
+        stock_minimo,
+        (SELECT talla FROM tallas_producto WHERE folio_producto = productos.folio_producto ORDER BY cantidad DESC LIMIT 1) as talla_principal
+      FROM productos
+      WHERE stock_actual <= stock_minimo
+      ORDER BY stock_actual ASC
+    `).all()
+    return productos
+  } catch (error) {
+    console.error('Error al obtener productos bajo stock:', error)
+    throw error
+  }
+})
+
+// Actualizar stock mínimo de un producto
+ipcMain.handle('update-stock-minimo', (_event, { folio_producto, stock_minimo }: { folio_producto: string, stock_minimo: number }) => {
+  try {
+    db.prepare(`
+      UPDATE productos 
+      SET stock_minimo = ?
+      WHERE folio_producto = ?
+    `).run(stock_minimo, folio_producto)
+    return { success: true }
+  } catch (error) {
+    console.error('Error al actualizar stock mínimo:', error)
+    throw error
+  }
+})
+
 // Estadísticas agrupadas por categoría
 ipcMain.handle('get-inventario-por-categoria', () => {
   try {

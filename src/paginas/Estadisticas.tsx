@@ -208,23 +208,39 @@ export function Estadisticas() {
   }
 
   const colores = {
-    primario: '#22c55e',
-    secundario: '#3b82f6',
-    terciario: '#f59e0b',
-    cuaternario: '#8b5cf6',
-    quinto: '#ef4444',
-    fondo: 'rgba(15, 23, 42, 0.95)',
-    texto: '#e2e8f0',
-    grid: 'rgba(148, 163, 184, 0.1)'
+    primario: '#38bdf8', // Sky blue
+    secundario: '#818cf8', // Indigo
+    terciario: '#34d399', // Emerald
+    cuaternario: '#f472b6', // Pink
+    quinto: '#fbbf24', // Amber
+    fondo: 'transparent',
+    texto: '#94a3b8',
+    grid: 'rgba(255, 255, 255, 0.03)',
+    tooltip: '#1e293b'
   }
 
   const layoutBase = {
     paper_bgcolor: 'transparent',
     plot_bgcolor: 'transparent',
-    font: { color: colores.texto, family: 'Inter, sans-serif' },
-    margin: { t: 40, r: 20, b: 40, l: 60 },
-    xaxis: { gridcolor: colores.grid, zerolinecolor: colores.grid },
-    yaxis: { gridcolor: colores.grid, zerolinecolor: colores.grid }
+    font: { color: colores.texto, family: 'Inter, system-ui, sans-serif', size: 11 },
+    margin: { t: 30, r: 20, b: 40, l: 60 },
+    xaxis: {
+      gridcolor: colores.grid,
+      zerolinecolor: colores.grid,
+      tickfont: { color: colores.texto },
+      showgrid: false
+    },
+    yaxis: {
+      gridcolor: colores.grid,
+      zerolinecolor: colores.grid,
+      tickfont: { color: colores.texto }
+    },
+    hoverlabel: {
+      bgcolor: colores.tooltip,
+      bordercolor: 'rgba(255,255,255,0.1)',
+      font: { color: '#f8fafc', family: 'Inter, sans-serif' }
+    },
+    hovermode: 'x unified' as const
   }
 
   return (
@@ -314,11 +330,12 @@ export function Estadisticas() {
                       x: xLabels,
                       y: yValues,
                       type: 'scatter',
-                      mode: 'lines+markers',
+                      mode: 'lines',
                       fill: 'tozeroy',
-                      line: { color: colores.primario, width: 2 },
+                      line: { color: colores.primario, width: 3 },
                       marker: { color: colores.primario, size: 6 },
-                      fillcolor: 'rgba(34, 197, 94, 0.1)'
+                      fillcolor: 'rgba(56, 189, 248, 0.1)',
+                      hovertemplate: '<b>%{x}</b><br>Ventas: $%{y:,.2f}<extra></extra>'
                     }]}
                     layout={{
                       ...layoutBase,
@@ -327,9 +344,15 @@ export function Estadisticas() {
                       xaxis: {
                         ...layoutBase.xaxis,
                         tickangle: periodoSeleccionado === 'mes' ? -45 : 0,
-                        type: 'category'
+                        type: 'category',
+                        showgrid: false
                       },
-                      yaxis: { ...layoutBase.yaxis, title: { text: 'Ventas ($)' } }
+                      yaxis: {
+                        ...layoutBase.yaxis,
+                        showgrid: true,
+                        gridcolor: 'rgba(255,255,255,0.03)',
+                        title: { text: '' }
+                      }
                     }}
                     config={{ responsive: true, displayModeBar: false }}
                     style={{ width: '100%', height: '100%' }}
@@ -347,13 +370,23 @@ export function Estadisticas() {
                     labels: ventasCategoria.map(c => c.categoria),
                     values: ventasCategoria.map(c => c.monto_total),
                     type: 'pie',
-                    hole: 0.5,
-                    marker: { colors: [colores.primario, colores.secundario, colores.terciario, colores.cuaternario, colores.quinto] },
+                    hole: 0.7,
+                    marker: {
+                      colors: [colores.primario, colores.secundario, colores.terciario, colores.cuaternario, colores.quinto],
+                      line: { color: '#0f172a', width: 2 }
+                    },
                     textinfo: 'percent',
                     textposition: 'outside',
-                    textfont: { color: colores.texto }
+                    textfont: { color: colores.texto },
+                    hovertemplate: '<b>%{label}</b><br>$%{value:,.2f}<br>%{percent}<extra></extra>'
                   }]}
-                  layout={{ ...layoutBase, height: 280, showlegend: true, legend: { orientation: 'h', y: -0.1, font: { size: 10 } } }}
+                  layout={{
+                    ...layoutBase,
+                    height: 280,
+                    showlegend: true,
+                    legend: { orientation: 'h', y: -0.2, font: { size: 10, color: colores.texto } },
+                    margin: { t: 20, r: 20, b: 60, l: 20 }
+                  }}
                   config={{ responsive: true, displayModeBar: false }}
                   style={{ width: '100%', height: '100%' }}
                 />
@@ -373,9 +406,22 @@ export function Estadisticas() {
                     x: productosMasVendidos.map(p => p.monto_total).reverse(),
                     type: 'bar',
                     orientation: 'h',
-                    marker: { color: productosMasVendidos.map((_, i) => [colores.primario, colores.secundario, colores.terciario, colores.cuaternario, colores.quinto][i % 5]).reverse() }
+                    marker: {
+                      color: productosMasVendidos.map((_, i) => [colores.primario, colores.secundario, colores.terciario, colores.cuaternario, colores.quinto][i % 5]).reverse(),
+                      line: { width: 0 },
+                      opacity: 0.9
+                    },
+                    hovertemplate: '<b>%{y}</b><br>Ventas: $%{x:,.2f}<extra></extra>'
                   }]}
-                  layout={{ ...layoutBase, height: 280, showlegend: false, xaxis: { ...layoutBase.xaxis, title: { text: 'Ventas ($)' } }, yaxis: { ...layoutBase.yaxis, tickfont: { size: 10 } }, margin: { ...layoutBase.margin, l: 120 } }}
+                  layout={{
+                    ...layoutBase,
+                    height: 280,
+                    showlegend: false,
+                    xaxis: { ...layoutBase.xaxis, showgrid: true, gridcolor: 'rgba(255,255,255,0.03)' },
+                    yaxis: { ...layoutBase.yaxis, tickfont: { size: 10 } },
+                    margin: { ...layoutBase.margin, l: 140, r: 20 },
+                    hovermode: 'closest'
+                  }}
                   config={{ responsive: true, displayModeBar: false }}
                   style={{ width: '100%', height: '100%' }}
                 />
@@ -391,13 +437,23 @@ export function Estadisticas() {
                     labels: ventasTipo.map(t => t.tipo_salida),
                     values: ventasTipo.map(t => t.monto_total),
                     type: 'pie',
-                    hole: 0.5,
-                    marker: { colors: [colores.primario, colores.terciario, colores.cuaternario, colores.secundario] },
+                    hole: 0.7,
+                    marker: {
+                      colors: [colores.primario, colores.terciario, colores.cuaternario, colores.secundario],
+                      line: { color: '#0f172a', width: 2 }
+                    },
                     textinfo: 'percent',
                     textposition: 'outside',
-                    textfont: { color: colores.texto }
+                    textfont: { color: colores.texto },
+                    hovertemplate: '<b>%{label}</b><br>$%{value:,.2f}<br>%{percent}<extra></extra>'
                   }]}
-                  layout={{ ...layoutBase, height: 280, showlegend: true, legend: { orientation: 'h', y: -0.1, font: { size: 10 } } }}
+                  layout={{
+                    ...layoutBase,
+                    height: 280,
+                    showlegend: true,
+                    legend: { orientation: 'h', y: -0.2, font: { size: 10, color: colores.texto } },
+                    margin: { t: 20, r: 20, b: 60, l: 20 }
+                  }}
                   config={{ responsive: true, displayModeBar: false }}
                   style={{ width: '100%', height: '100%' }}
                 />

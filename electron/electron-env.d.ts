@@ -79,6 +79,9 @@ interface Window {
       gananciaProyectada: number
     }>>
     getProductosPorCategoria: (categoria: string) => Promise<any[]>
+    getMovimientosInventarioRecientes: (limite: number) => Promise<any[]>
+    getProductosBajoStock: () => Promise<any[]>
+    updateStockMinimo: (data: { folio_producto: string, stock_minimo: number }) => Promise<{ success: boolean }>
     // Entradas - KPIs y Timeline
     getEntradasKpis: () => Promise<{
       mes: { numEntradas: number, totalUnidades: number, inversionTotal: number, valorVenta: number, gananciaProyectada: number }

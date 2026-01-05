@@ -94,17 +94,25 @@ export function InventarioNuevo() {
     // Filtro de categorías para timeline
     const [categoriasActivas, setCategoriasActivas] = useState<Set<string>>(new Set(Object.keys(iconosCategorias)))
 
+    // Edición de stock mínimo en alertas
+    const [editandoMinimo, setEditandoMinimo] = useState<string | null>(null)
+    const [nuevoMinimo, setNuevoMinimo] = useState<number>(0)
+
+    const [productosAlerta, setProductosAlerta] = useState<any[]>([])
+
     const cargarDatos = async () => {
         setCargando(true)
         try {
-            const [kpisData, categoriasData, movimientosData] = await Promise.all([
+            const [kpisData, categoriasData, movimientosData, alertasData] = await Promise.all([
                 window.ipcRenderer.getInventarioKpis(),
                 window.ipcRenderer.getInventarioPorCategoria(),
-                window.ipcRenderer.getMovimientosInventarioRecientes(15)
+                window.ipcRenderer.getMovimientosInventarioRecientes(15),
+                window.ipcRenderer.getProductosBajoStock()
             ])
             setKpis(kpisData)
             setCategorias(categoriasData)
             setMovimientos(movimientosData)
+            setProductosAlerta(alertasData)
         } catch (error) {
             console.error('Error cargando datos de inventario:', error)
         } finally {
@@ -170,6 +178,16 @@ export function InventarioNuevo() {
             else next.add(cat)
             return next
         })
+    }
+
+    const guardarStockMinimo = async (folio: string) => {
+        try {
+            await window.ipcRenderer.updateStockMinimo({ folio_producto: folio, stock_minimo: nuevoMinimo })
+            setEditandoMinimo(null)
+            await cargarDatos()
+        } catch (error) {
+            console.error('Error guardando stock mínimo:', error)
+        }
     }
 
     const formatearMoneda = (valor: number) => {
@@ -477,6 +495,64 @@ export function InventarioNuevo() {
                     </div>
                 </div>
             </div>
+
+            {/* Alertas de Stock Bajo */}
+            {productosAlerta.length > 0 && (
+                <div className="alerta-section">
+                    <div className="seccion-titulo alerta-titulo">
+                        <AlertTriangle size={20} className="icono-alerta" />
+                        <h2>Alertas de Stock Bajo</h2>
+                        <span className="badge-alerta">{productosAlerta.length}</span>
+                    </div>
+
+                    <div className="alertas-container">
+                        {productosAlerta.map((producto) => (
+                            <div key={producto.folio_producto} className="alerta-card">
+                                <div className="alerta-icon">
+                                    {iconosCategorias[producto.categoria] || '📦'}
+                                </div>
+                                <div className="alerta-info">
+                                    <h4>{producto.nombre_producto || producto.folio_producto}</h4>
+                                    <div className="alerta-stats">
+                                        <div className="stat-item peligro">
+                                            <span className="label">Actual</span>
+                                            <span className="value">{producto.stock_actual}</span>
+                                        </div>
+                                        <div className="stat-divider">/</div>
+                                        {editandoMinimo === producto.folio_producto ? (
+                                            <div className="stat-item editar-minimo">
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={nuevoMinimo}
+                                                    onChange={(e) => setNuevoMinimo(Number(e.target.value))}
+                                                    className="input-minimo"
+                                                    autoFocus
+                                                />
+                                                <div className="botones-minimo">
+                                                    <button onClick={() => guardarStockMinimo(producto.folio_producto)} className="btn-guardar-min">✓</button>
+                                                    <button onClick={() => setEditandoMinimo(null)} className="btn-cancelar-min">✕</button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div
+                                                className="stat-item meta editable"
+                                                onClick={() => {
+                                                    setEditandoMinimo(producto.folio_producto)
+                                                    setNuevoMinimo(producto.stock_minimo)
+                                                }}
+                                            >
+                                                <span className="label">Mínimo</span>
+                                                <span className="value">{producto.stock_minimo} <Edit2 size={10} /></span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
