@@ -1629,6 +1629,15 @@ ipcMain.handle("get-entradas-kpis", () => {
       WHERE DATE(fecha_entrada) >= DATE(?) AND DATE(fecha_entrada) <= DATE(?)
         AND tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
     `).get(inicioAnio, finHoy);
+    const entradasTodo = db.prepare(`
+      SELECT 
+        COUNT(*) as num_entradas,
+        COALESCE(SUM(cantidad_recibida), 0) as total_unidades,
+        COALESCE(SUM(cantidad_recibida * costo_unitario_proveedor), 0) as inversion_total,
+        COALESCE(SUM(cantidad_recibida * precio_unitario_base), 0) as valor_venta
+      FROM entradas
+      WHERE tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
+    `).get();
     const productosNuevosMes = db.prepare(`
       SELECT COUNT(DISTINCT folio_producto) as cantidad
       FROM entradas
@@ -1642,6 +1651,8 @@ ipcMain.handle("get-entradas-kpis", () => {
       WHERE DATE(e.fecha_entrada) >= DATE(?) AND DATE(e.fecha_entrada) <= DATE(?)
         AND e.tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
     `).get(inicioMes, finHoy);
+    const totalProductos = db.prepare(`SELECT COUNT(DISTINCT folio_producto) as cantidad FROM entradas`).get();
+    const totalProveedores = db.prepare(`SELECT COUNT(DISTINCT proveedor) as cantidad FROM productos WHERE proveedor IS NOT NULL`).get();
     return {
       mes: {
         numEntradas: (entradasMes == null ? void 0 : entradasMes.num_entradas) || 0,
@@ -1657,17 +1668,50 @@ ipcMain.handle("get-entradas-kpis", () => {
         valorVenta: (entradasAnio == null ? void 0 : entradasAnio.valor_venta) || 0,
         gananciaProyectada: ((entradasAnio == null ? void 0 : entradasAnio.valor_venta) || 0) - ((entradasAnio == null ? void 0 : entradasAnio.inversion_total) || 0)
       },
+      todo: {
+        numEntradas: (entradasTodo == null ? void 0 : entradasTodo.num_entradas) || 0,
+        totalUnidades: (entradasTodo == null ? void 0 : entradasTodo.total_unidades) || 0,
+        inversionTotal: (entradasTodo == null ? void 0 : entradasTodo.inversion_total) || 0,
+        valorVenta: (entradasTodo == null ? void 0 : entradasTodo.valor_venta) || 0,
+        gananciaProyectada: ((entradasTodo == null ? void 0 : entradasTodo.valor_venta) || 0) - ((entradasTodo == null ? void 0 : entradasTodo.inversion_total) || 0)
+      },
       productosNuevosMes: (productosNuevosMes == null ? void 0 : productosNuevosMes.cantidad) || 0,
-      proveedoresActivosMes: (proveedoresActivosMes == null ? void 0 : proveedoresActivosMes.cantidad) || 0
+      proveedoresActivosMes: (proveedoresActivosMes == null ? void 0 : proveedoresActivosMes.cantidad) || 0,
+      totalProductos: (totalProductos == null ? void 0 : totalProductos.cantidad) || 0,
+      totalProveedores: (totalProveedores == null ? void 0 : totalProveedores.cantidad) || 0
     };
   } catch (error) {
     console.error("Error al obtener KPIs de entradas:", error);
     return {
       mes: { numEntradas: 0, totalUnidades: 0, inversionTotal: 0, valorVenta: 0, gananciaProyectada: 0 },
       anio: { numEntradas: 0, totalUnidades: 0, inversionTotal: 0, valorVenta: 0, gananciaProyectada: 0 },
+      todo: { numEntradas: 0, totalUnidades: 0, inversionTotal: 0, valorVenta: 0, gananciaProyectada: 0 },
       productosNuevosMes: 0,
-      proveedoresActivosMes: 0
+      proveedoresActivosMes: 0,
+      totalProductos: 0,
+      totalProveedores: 0
     };
+  }
+});
+ipcMain.handle("get-entradas-por-categoria", () => {
+  try {
+    const entradas = db.prepare(`
+      SELECT 
+        p.categoria,
+        COUNT(DISTINCT e.id_entrada) as num_entradas,
+        COALESCE(SUM(e.cantidad_recibida), 0) as total_unidades,
+        COALESCE(SUM(e.cantidad_recibida * e.costo_unitario_proveedor), 0) as inversion_total,
+        COALESCE(SUM(e.cantidad_recibida * e.precio_unitario_base), 0) as valor_venta
+      FROM entradas e
+      INNER JOIN productos p ON e.folio_producto = p.folio_producto
+      WHERE e.tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
+      GROUP BY p.categoria
+      ORDER BY inversion_total DESC
+    `).all();
+    return entradas;
+  } catch (error) {
+    console.error("Error al obtener entradas por categoría:", error);
+    return [];
   }
 });
 ipcMain.handle("get-entradas-recientes", (_event, limite = 20) => {

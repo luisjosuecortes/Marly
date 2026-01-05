@@ -63,6 +63,7 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
   getEntradasKpis: () => electron.ipcRenderer.invoke("get-entradas-kpis"),
   getEntradasRecientes: (limite = 20) => electron.ipcRenderer.invoke("get-entradas-recientes", limite),
   getEntradasPorProveedor: () => electron.ipcRenderer.invoke("get-entradas-por-proveedor"),
+  getEntradasPorCategoria: () => electron.ipcRenderer.invoke("get-entradas-por-categoria"),
   registrarEntradaMultipleTallas: (datos) => electron.ipcRenderer.invoke("registrar-entrada-multiple-tallas", datos),
   // Inventario - Movimientos Timeline
   getMovimientosInventarioRecientes: (limite = 20) => electron.ipcRenderer.invoke("get-movimientos-inventario-recientes", limite)

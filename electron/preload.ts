@@ -66,6 +66,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   getEntradasKpis: () => ipcRenderer.invoke('get-entradas-kpis'),
   getEntradasRecientes: (limite: number = 20) => ipcRenderer.invoke('get-entradas-recientes', limite),
   getEntradasPorProveedor: () => ipcRenderer.invoke('get-entradas-por-proveedor'),
+  getEntradasPorCategoria: () => ipcRenderer.invoke('get-entradas-por-categoria'),
   registrarEntradaMultipleTallas: (datos: any) => ipcRenderer.invoke('registrar-entrada-multiple-tallas', datos),
   // Inventario - Movimientos Timeline
   getMovimientosInventarioRecientes: (limite: number = 20) => ipcRenderer.invoke('get-movimientos-inventario-recientes', limite),

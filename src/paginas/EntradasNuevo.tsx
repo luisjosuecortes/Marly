@@ -7,17 +7,19 @@ import './EntradasNuevo.css'
 interface EntradasKpis {
     mes: { numEntradas: number, totalUnidades: number, inversionTotal: number, valorVenta: number, gananciaProyectada: number }
     anio: { numEntradas: number, totalUnidades: number, inversionTotal: number, valorVenta: number, gananciaProyectada: number }
+    todo: { numEntradas: number, totalUnidades: number, inversionTotal: number, valorVenta: number, gananciaProyectada: number }
     productosNuevosMes: number
     proveedoresActivosMes: number
+    totalProductos: number
+    totalProveedores: number
 }
 
-interface CategoriaStats {
+interface CategoriaEntradas {
     categoria: string
-    numProductos: number
-    totalUnidades: number
-    valorCosto: number
-    valorVenta: number
-    gananciaProyectada: number
+    num_entradas: number
+    total_unidades: number
+    inversion_total: number
+    valor_venta: number
 }
 
 interface Producto {
@@ -77,13 +79,21 @@ const iconosCategorias: Record<string, string> = {
 
 export function EntradasNuevo() {
     const [kpis, setKpis] = useState<EntradasKpis | null>(null)
-    const [categorias, setCategorias] = useState<CategoriaStats[]>([])
+    const [categorias, setCategorias] = useState<CategoriaEntradas[]>([])
     const [categoriaExpandida, setCategoriaExpandida] = useState<string | null>(null)
     const [productosCategoria, setProductosCategoria] = useState<Producto[]>([])
     const [entradasRecientes, setEntradasRecientes] = useState<EntradaReciente[]>([])
     const [cargando, setCargando] = useState(true)
     const [cargandoProductos, setCargandoProductos] = useState(false)
-    const [periodoKpi, setPeriodoKpi] = useState<'mes' | 'anio'>('mes')
+    const [periodoKpi, setPeriodoKpi] = useState<'mes' | 'anio' | 'todo' | 'personalizado'>('mes')
+
+    // Custom date selection
+    const [mostrarSelectorFecha, setMostrarSelectorFecha] = useState(false)
+    const [tipoPersonalizado, setTipoPersonalizado] = useState<'mes' | 'anio'>('mes')
+    const [fechaPersonalizada, setFechaPersonalizada] = useState({
+        mes: new Date().getMonth(),
+        anio: new Date().getFullYear()
+    })
 
     // Filtros
     const [busqueda, setBusqueda] = useState('')
@@ -123,7 +133,7 @@ export function EntradasNuevo() {
         try {
             const [kpisData, categoriasData, recientesData, proveedoresData] = await Promise.all([
                 window.ipcRenderer.getEntradasKpis(),
-                window.ipcRenderer.getInventarioPorCategoria(),
+                window.ipcRenderer.getEntradasPorCategoria(),
                 window.ipcRenderer.getEntradasRecientes(15),
                 window.ipcRenderer.getProveedores()
             ])
@@ -286,7 +296,7 @@ export function EntradasNuevo() {
         }
     }
 
-    const kpiActual = kpis ? kpis[periodoKpi] : null
+    const kpiActual = kpis ? kpis[periodoKpi === 'personalizado' ? 'todo' : periodoKpi] : null
 
     if (cargando) return <div className="pagina-contenido">Cargando entradas...</div>
 
@@ -329,8 +339,58 @@ export function EntradasNuevo() {
 
                 {/* Toggle período */}
                 <div className="periodo-toggle">
-                    <button className={`btn-periodo ${periodoKpi === 'mes' ? 'activo' : ''}`} onClick={() => setPeriodoKpi('mes')}>Este Mes</button>
-                    <button className={`btn-periodo ${periodoKpi === 'anio' ? 'activo' : ''}`} onClick={() => setPeriodoKpi('anio')}>Este Año</button>
+                    <button className={`btn-periodo ${periodoKpi === 'mes' ? 'activo' : ''}`} onClick={() => { setPeriodoKpi('mes'); setMostrarSelectorFecha(false) }}>Este Mes</button>
+                    <button className={`btn-periodo ${periodoKpi === 'anio' ? 'activo' : ''}`} onClick={() => { setPeriodoKpi('anio'); setMostrarSelectorFecha(false) }}>Este Año</button>
+                    <button className={`btn-periodo ${periodoKpi === 'todo' ? 'activo' : ''}`} onClick={() => { setPeriodoKpi('todo'); setMostrarSelectorFecha(false) }}>Todo el Tiempo</button>
+                    <div className="selector-personalizado">
+                        <button
+                            className={`btn-periodo ${periodoKpi === 'personalizado' ? 'activo' : ''}`}
+                            onClick={() => setMostrarSelectorFecha(!mostrarSelectorFecha)}
+                        >
+                            Personalizado ▼
+                        </button>
+                        {mostrarSelectorFecha && (
+                            <div className="dropdown-fecha">
+                                <div className="dropdown-grupo">
+                                    <label>Tipo</label>
+                                    <select value={tipoPersonalizado} onChange={(e) => setTipoPersonalizado(e.target.value as 'mes' | 'anio')}>
+                                        <option value="mes">Mes específico</option>
+                                        <option value="anio">Año específico</option>
+                                    </select>
+                                </div>
+                                {tipoPersonalizado === 'mes' && (
+                                    <div className="dropdown-grupo">
+                                        <label>Mes</label>
+                                        <select
+                                            value={fechaPersonalizada.mes}
+                                            onChange={(e) => setFechaPersonalizada(prev => ({ ...prev, mes: Number(e.target.value) }))}
+                                        >
+                                            {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map((m, i) => (
+                                                <option key={i} value={i}>{m}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                                <div className="dropdown-grupo">
+                                    <label>Año</label>
+                                    <select
+                                        value={fechaPersonalizada.anio}
+                                        onChange={(e) => setFechaPersonalizada(prev => ({ ...prev, anio: Number(e.target.value) }))}
+                                    >
+                                        {Array.from({ length: new Date().getFullYear() - 2026 + 1 }, (_, i) => 2026 + i).map(y => (
+                                            <option key={y} value={y}>{y}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <button
+                                    className="btn-aplicar-fecha"
+                                    onClick={() => { setPeriodoKpi('personalizado'); setMostrarSelectorFecha(false) }}
+                                >
+                                    Aplicar
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* KPIs */}
@@ -369,9 +429,9 @@ export function EntradasNuevo() {
                     </div>
                 </div>
 
-                {/* Categorías con productos expandibles */}
+                {/* Entradas por categoría */}
                 <div className="categorias-section">
-                    <h2 className="seccion-titulo"><BoxIcon size={20} /> Categorías ({categorias.length})</h2>
+                    <h2 className="seccion-titulo"><BoxIcon size={20} /> Entradas por Categoría ({categorias.length})</h2>
                     <div className="categorias-grid">
                         {categorias.map((cat) => (
                             <div key={cat.categoria} className={`categoria-card ${categoriaExpandida === cat.categoria ? 'expandida' : ''}`}>
@@ -379,11 +439,11 @@ export function EntradasNuevo() {
                                     <div className="categoria-icono">{iconosCategorias[cat.categoria] || '📦'}</div>
                                     <div className="categoria-info">
                                         <h3 className="categoria-nombre">{cat.categoria}</h3>
-                                        <p className="categoria-stats">{cat.numProductos} productos • {cat.totalUnidades} unidades</p>
+                                        <p className="categoria-stats">{cat.num_entradas} entradas • {cat.total_unidades} unidades</p>
                                     </div>
                                     <div className="categoria-valores">
-                                        <span className="categoria-valor-venta">{formatearMoneda(cat.valorVenta)}</span>
-                                        <span className="categoria-ganancia">+{formatearMoneda(cat.gananciaProyectada)}</span>
+                                        <span className="categoria-valor-venta">{formatearMoneda(cat.inversion_total)}</span>
+                                        <span className="categoria-ganancia">+{formatearMoneda(cat.valor_venta - cat.inversion_total)}</span>
                                     </div>
                                     <div className="categoria-chevron">
                                         {categoriaExpandida === cat.categoria ? <ChevronUp size={20} /> : <ChevronDown size={20} />}

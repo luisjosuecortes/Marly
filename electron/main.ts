@@ -2015,6 +2015,17 @@ ipcMain.handle('get-entradas-kpis', () => {
         AND tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
     `).get(inicioAnio, finHoy) as any
 
+    // Entradas de todo el tiempo
+    const entradasTodo = db.prepare(`
+      SELECT 
+        COUNT(*) as num_entradas,
+        COALESCE(SUM(cantidad_recibida), 0) as total_unidades,
+        COALESCE(SUM(cantidad_recibida * costo_unitario_proveedor), 0) as inversion_total,
+        COALESCE(SUM(cantidad_recibida * precio_unitario_base), 0) as valor_venta
+      FROM entradas
+      WHERE tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
+    `).get() as any
+
     // Productos nuevos este mes
     const productosNuevosMes = db.prepare(`
       SELECT COUNT(DISTINCT folio_producto) as cantidad
@@ -2032,6 +2043,10 @@ ipcMain.handle('get-entradas-kpis', () => {
         AND e.tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
     `).get(inicioMes, finHoy) as any
 
+    // Total productos y proveedores histórico
+    const totalProductos = db.prepare(`SELECT COUNT(DISTINCT folio_producto) as cantidad FROM entradas`).get() as any
+    const totalProveedores = db.prepare(`SELECT COUNT(DISTINCT proveedor) as cantidad FROM productos WHERE proveedor IS NOT NULL`).get() as any
+
     return {
       mes: {
         numEntradas: entradasMes?.num_entradas || 0,
@@ -2047,17 +2062,52 @@ ipcMain.handle('get-entradas-kpis', () => {
         valorVenta: entradasAnio?.valor_venta || 0,
         gananciaProyectada: (entradasAnio?.valor_venta || 0) - (entradasAnio?.inversion_total || 0)
       },
+      todo: {
+        numEntradas: entradasTodo?.num_entradas || 0,
+        totalUnidades: entradasTodo?.total_unidades || 0,
+        inversionTotal: entradasTodo?.inversion_total || 0,
+        valorVenta: entradasTodo?.valor_venta || 0,
+        gananciaProyectada: (entradasTodo?.valor_venta || 0) - (entradasTodo?.inversion_total || 0)
+      },
       productosNuevosMes: productosNuevosMes?.cantidad || 0,
-      proveedoresActivosMes: proveedoresActivosMes?.cantidad || 0
+      proveedoresActivosMes: proveedoresActivosMes?.cantidad || 0,
+      totalProductos: totalProductos?.cantidad || 0,
+      totalProveedores: totalProveedores?.cantidad || 0
     }
   } catch (error) {
     console.error('Error al obtener KPIs de entradas:', error)
     return {
       mes: { numEntradas: 0, totalUnidades: 0, inversionTotal: 0, valorVenta: 0, gananciaProyectada: 0 },
       anio: { numEntradas: 0, totalUnidades: 0, inversionTotal: 0, valorVenta: 0, gananciaProyectada: 0 },
+      todo: { numEntradas: 0, totalUnidades: 0, inversionTotal: 0, valorVenta: 0, gananciaProyectada: 0 },
       productosNuevosMes: 0,
-      proveedoresActivosMes: 0
+      proveedoresActivosMes: 0,
+      totalProductos: 0,
+      totalProveedores: 0
     }
+  }
+})
+
+// Entradas agrupadas por categoría
+ipcMain.handle('get-entradas-por-categoria', () => {
+  try {
+    const entradas = db.prepare(`
+      SELECT 
+        p.categoria,
+        COUNT(DISTINCT e.id_entrada) as num_entradas,
+        COALESCE(SUM(e.cantidad_recibida), 0) as total_unidades,
+        COALESCE(SUM(e.cantidad_recibida * e.costo_unitario_proveedor), 0) as inversion_total,
+        COALESCE(SUM(e.cantidad_recibida * e.precio_unitario_base), 0) as valor_venta
+      FROM entradas e
+      INNER JOIN productos p ON e.folio_producto = p.folio_producto
+      WHERE e.tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
+      GROUP BY p.categoria
+      ORDER BY inversion_total DESC
+    `).all()
+    return entradas
+  } catch (error) {
+    console.error('Error al obtener entradas por categoría:', error)
+    return []
   }
 })
 

@@ -47,8 +47,17 @@ interface ClienteSaldo {
 }
 
 export function Estadisticas() {
-  const [periodoSeleccionado, setPeriodoSeleccionado] = useState<'hoy' | 'semana' | 'mes' | 'anio'>('mes')
+  const [periodoSeleccionado, setPeriodoSeleccionado] = useState<'hoy' | 'semana' | 'mes' | 'anio' | 'personalizado'>('mes')
   const [cargando, setCargando] = useState(true)
+
+  // Custom date selection
+  const [mostrarSelectorFecha, setMostrarSelectorFecha] = useState(false)
+  const [tipoPersonalizado, setTipoPersonalizado] = useState<'dia' | 'mes' | 'anio'>('mes')
+  const [fechaPersonalizada, setFechaPersonalizada] = useState({
+    dia: new Date().getDate(),
+    mes: new Date().getMonth(),
+    anio: new Date().getFullYear()
+  })
 
   const [resumen, setResumen] = useState<Resumen | null>(null)
   const [ventasPeriodo, setVentasPeriodo] = useState<VentaPeriodo[]>([])
@@ -57,26 +66,11 @@ export function Estadisticas() {
   const [ventasTipo, setVentasTipo] = useState<VentaTipo[]>([])
   const [clientesConSaldo, setClientesConSaldo] = useState<ClienteSaldo[]>([])
 
-  const { fechaInicio, fechaFin } = useMemo(() => {
+  const { fechaInicio, fechaFin, agrupacionActual } = useMemo(() => {
     const hoy = new Date()
     let inicio: Date
-
-    switch (periodoSeleccionado) {
-      case 'hoy':
-        inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
-        break
-      case 'semana':
-        inicio = new Date(hoy.getTime() - 7 * 24 * 60 * 60 * 1000)
-        break
-      case 'mes':
-        inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
-        break
-      case 'anio':
-        inicio = new Date(hoy.getFullYear(), 0, 1)
-        break
-      default:
-        inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
-    }
+    let fin: Date = hoy
+    let agrupacion: string = 'dia'
 
     // Formatear fechas en zona horaria local (YYYY-MM-DD)
     const formatearFecha = (fecha: Date) => {
@@ -86,34 +80,63 @@ export function Estadisticas() {
       return `${year}-${month}-${day}`
     }
 
+    if (periodoSeleccionado === 'personalizado') {
+      const { dia, mes, anio } = fechaPersonalizada
+      switch (tipoPersonalizado) {
+        case 'dia':
+          inicio = new Date(anio, mes, dia)
+          fin = new Date(anio, mes, dia)
+          agrupacion = 'hora'
+          break
+        case 'mes':
+          inicio = new Date(anio, mes, 1)
+          fin = new Date(anio, mes + 1, 0) // Last day of month
+          agrupacion = 'dia_mes'
+          break
+        case 'anio':
+          inicio = new Date(anio, 0, 1)
+          fin = new Date(anio, 11, 31)
+          agrupacion = 'mes'
+          break
+        default:
+          inicio = new Date(anio, mes, 1)
+          fin = new Date(anio, mes + 1, 0)
+          agrupacion = 'dia_mes'
+      }
+    } else {
+      switch (periodoSeleccionado) {
+        case 'hoy':
+          inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
+          agrupacion = 'hora'
+          break
+        case 'semana':
+          inicio = new Date(hoy.getTime() - 7 * 24 * 60 * 60 * 1000)
+          agrupacion = 'dia_semana'
+          break
+        case 'mes':
+          inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+          agrupacion = 'dia_mes'
+          break
+        case 'anio':
+          inicio = new Date(hoy.getFullYear(), 0, 1)
+          agrupacion = 'mes'
+          break
+        default:
+          inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+          agrupacion = 'dia_mes'
+      }
+    }
+
     return {
       fechaInicio: formatearFecha(inicio),
-      fechaFin: formatearFecha(hoy)
+      fechaFin: formatearFecha(fin),
+      agrupacionActual: agrupacion
     }
-  }, [periodoSeleccionado])
+  }, [periodoSeleccionado, fechaPersonalizada, tipoPersonalizado])
 
   const cargarDatos = async () => {
     setCargando(true)
     try {
-      // Determinar la agrupación según el período
-      let agrupacion: string
-      switch (periodoSeleccionado) {
-        case 'hoy':
-          agrupacion = 'hora'
-          break
-        case 'semana':
-          agrupacion = 'dia_semana'
-          break
-        case 'mes':
-          agrupacion = 'dia_mes'
-          break
-        case 'anio':
-          agrupacion = 'mes'
-          break
-        default:
-          agrupacion = 'dia'
-      }
-
       const [
         resumenData,
         ventasData,
@@ -123,7 +146,7 @@ export function Estadisticas() {
         clientesData
       ] = await Promise.all([
         window.ipcRenderer.getEstadisticasResumen({ fechaInicio, fechaFin }),
-        window.ipcRenderer.getVentasPorPeriodo({ fechaInicio, fechaFin, agrupacion }),
+        window.ipcRenderer.getVentasPorPeriodo({ fechaInicio, fechaFin, agrupacion: agrupacionActual }),
         window.ipcRenderer.getProductosMasVendidos({ fechaInicio, fechaFin, limite: 5 }),
         window.ipcRenderer.getVentasPorCategoria({ fechaInicio, fechaFin }),
         window.ipcRenderer.getVentasPorTipo({ fechaInicio, fechaFin }),
@@ -256,11 +279,71 @@ export function Estadisticas() {
               <button
                 key={periodo}
                 className={`btn-periodo ${periodoSeleccionado === periodo ? 'activo' : ''}`}
-                onClick={() => setPeriodoSeleccionado(periodo)}
+                onClick={() => { setPeriodoSeleccionado(periodo); setMostrarSelectorFecha(false) }}
               >
                 {periodo === 'anio' ? 'Año' : periodo.charAt(0).toUpperCase() + periodo.slice(1)}
               </button>
             ))}
+            <div className="selector-personalizado">
+              <button
+                className={`btn-periodo ${periodoSeleccionado === 'personalizado' ? 'activo' : ''}`}
+                onClick={() => setMostrarSelectorFecha(!mostrarSelectorFecha)}
+              >
+                Personalizado ▼
+              </button>
+              {mostrarSelectorFecha && (
+                <div className="dropdown-fecha">
+                  <div className="dropdown-grupo">
+                    <label>Tipo</label>
+                    <select value={tipoPersonalizado} onChange={(e) => setTipoPersonalizado(e.target.value as 'dia' | 'mes' | 'anio')}>
+                      <option value="dia">Día específico</option>
+                      <option value="mes">Mes específico</option>
+                      <option value="anio">Año específico</option>
+                    </select>
+                  </div>
+                  {tipoPersonalizado === 'dia' && (
+                    <div className="dropdown-grupo">
+                      <label>Día</label>
+                      <input
+                        type="number" min="1" max="31"
+                        value={fechaPersonalizada.dia}
+                        onChange={(e) => setFechaPersonalizada(prev => ({ ...prev, dia: Number(e.target.value) }))}
+                      />
+                    </div>
+                  )}
+                  {(tipoPersonalizado === 'dia' || tipoPersonalizado === 'mes') && (
+                    <div className="dropdown-grupo">
+                      <label>Mes</label>
+                      <select
+                        value={fechaPersonalizada.mes}
+                        onChange={(e) => setFechaPersonalizada(prev => ({ ...prev, mes: Number(e.target.value) }))}
+                      >
+                        {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map((m, i) => (
+                          <option key={i} value={i}>{m}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <div className="dropdown-grupo">
+                    <label>Año</label>
+                    <select
+                      value={fechaPersonalizada.anio}
+                      onChange={(e) => setFechaPersonalizada(prev => ({ ...prev, anio: Number(e.target.value) }))}
+                    >
+                      {Array.from({ length: new Date().getFullYear() - 2026 + 1 }, (_, i) => 2026 + i).map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    className="btn-aplicar-fecha"
+                    onClick={() => { setPeriodoSeleccionado('personalizado'); setMostrarSelectorFecha(false) }}
+                  >
+                    Aplicar
+                  </button>
+                </div>
+              )}
+            </div>
             <button className="btn-refresh" onClick={cargarDatos} disabled={cargando}>
               <RefreshCw size={16} className={cargando ? 'spinning' : ''} />
             </button>
@@ -273,16 +356,7 @@ export function Estadisticas() {
             <div className="kpi-content">
               <p className="kpi-label">Ventas</p>
               <h2 className="kpi-value">{formatearMoneda(resumen?.ventasTotales || 0)}</h2>
-              <p className="kpi-subtitle">{resumen?.numVentas || 0} transacciones</p>
-            </div>
-          </div>
-
-          <div className="kpi-card kpi-inventario">
-            <div className="kpi-icon"><DollarSign size={24} /></div>
-            <div className="kpi-content">
-              <p className="kpi-label">Cobrado</p>
-              <h2 className="kpi-value">{formatearMoneda(resumen?.totalCobrado || 0)}</h2>
-              <p className="kpi-subtitle">Ingresos reales</p>
+              <p className="kpi-subtitle">{resumen?.numVentas || 0} transacciones • Inversión: {formatearMoneda(resumen?.costosTotales || 0)}</p>
             </div>
           </div>
 
@@ -293,9 +367,18 @@ export function Estadisticas() {
               <h2 className="kpi-value">{formatearMoneda(resumen?.gananciaNeta || 0)}</h2>
               <p className="kpi-subtitle">
                 {resumen && resumen.ventasTotales > 0
-                  ? `${((resumen.gananciaNeta / resumen.ventasTotales) * 100).toFixed(1)}% margen`
+                  ? `${((resumen.gananciaNeta / resumen.ventasTotales) * 100).toFixed(1)}% margen • De ventas realizadas`
                   : '0% margen'}
               </p>
+            </div>
+          </div>
+
+          <div className="kpi-card kpi-inventario">
+            <div className="kpi-icon"><DollarSign size={24} /></div>
+            <div className="kpi-content">
+              <p className="kpi-label">Cobrado</p>
+              <h2 className="kpi-value">{formatearMoneda(resumen?.totalCobrado || 0)}</h2>
+              <p className="kpi-subtitle">Ingresos reales</p>
             </div>
           </div>
 

@@ -86,8 +86,11 @@ interface Window {
     getEntradasKpis: () => Promise<{
       mes: { numEntradas: number, totalUnidades: number, inversionTotal: number, valorVenta: number, gananciaProyectada: number }
       anio: { numEntradas: number, totalUnidades: number, inversionTotal: number, valorVenta: number, gananciaProyectada: number }
+      todo: { numEntradas: number, totalUnidades: number, inversionTotal: number, valorVenta: number, gananciaProyectada: number }
       productosNuevosMes: number
       proveedoresActivosMes: number
+      totalProductos: number
+      totalProveedores: number
     }>
     getEntradasRecientes: (limite?: number) => Promise<Array<{
       id_entrada: number
@@ -111,6 +114,13 @@ interface Window {
       inversion_total: number
       num_productos: number
       ultima_entrada: string
+    }>>
+    getEntradasPorCategoria: () => Promise<Array<{
+      categoria: string
+      num_entradas: number
+      total_unidades: number
+      inversion_total: number
+      valor_venta: number
     }>>
     registrarEntradaMultipleTallas: (datos: {
       folio_producto: string
