@@ -59,4 +59,11 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   getInventarioKpis: () => ipcRenderer.invoke('get-inventario-kpis'),
   getInventarioPorCategoria: () => ipcRenderer.invoke('get-inventario-por-categoria'),
   getProductosPorCategoria: (categoria: string) => ipcRenderer.invoke('get-productos-por-categoria', categoria),
+  // Entradas - KPIs y Timeline
+  getEntradasKpis: () => ipcRenderer.invoke('get-entradas-kpis'),
+  getEntradasRecientes: (limite: number = 20) => ipcRenderer.invoke('get-entradas-recientes', limite),
+  getEntradasPorProveedor: () => ipcRenderer.invoke('get-entradas-por-proveedor'),
+  registrarEntradaMultipleTallas: (datos: any) => ipcRenderer.invoke('registrar-entrada-multiple-tallas', datos),
+  // Inventario - Movimientos Timeline
+  getMovimientosInventarioRecientes: (limite: number = 20) => ipcRenderer.invoke('get-movimientos-inventario-recientes', limite),
 })

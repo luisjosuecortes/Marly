@@ -79,5 +79,59 @@ interface Window {
       gananciaProyectada: number
     }>>
     getProductosPorCategoria: (categoria: string) => Promise<any[]>
+    // Entradas - KPIs y Timeline
+    getEntradasKpis: () => Promise<{
+      mes: { numEntradas: number, totalUnidades: number, inversionTotal: number, valorVenta: number, gananciaProyectada: number }
+      anio: { numEntradas: number, totalUnidades: number, inversionTotal: number, valorVenta: number, gananciaProyectada: number }
+      productosNuevosMes: number
+      proveedoresActivosMes: number
+    }>
+    getEntradasRecientes: (limite?: number) => Promise<Array<{
+      id_entrada: number
+      fecha_entrada: string
+      folio_producto: string
+      cantidad_recibida: number
+      talla: string
+      costo_unitario_proveedor: number
+      precio_unitario_base: number
+      tipo_movimiento: string
+      responsable_recepcion: string | null
+      observaciones_entrada: string | null
+      nombre_producto: string | null
+      categoria: string
+      proveedor: string | null
+    }>>
+    getEntradasPorProveedor: () => Promise<Array<{
+      proveedor: string
+      num_entradas: number
+      total_unidades: number
+      inversion_total: number
+      num_productos: number
+      ultima_entrada: string
+    }>>
+    registrarEntradaMultipleTallas: (datos: {
+      folio_producto: string
+      esNuevo: boolean
+      producto?: any
+      tallas: Array<{ talla: string, cantidad: number, costo: number, precio: number }>
+      responsable?: string
+      observaciones?: string
+    }) => Promise<{ success: true }>
+    // Inventario - Movimientos Timeline
+    getMovimientosInventarioRecientes: (limite?: number) => Promise<Array<{
+      tipo: 'entrada' | 'venta'
+      id: number
+      fecha: string
+      folio_producto: string
+      cantidad: number
+      talla: string
+      costo: number | null
+      precio: number
+      tipo_movimiento: string
+      nombre_producto: string | null
+      categoria: string
+      proveedor: string | null
+      cliente: string | null
+    }>>
   }
 }

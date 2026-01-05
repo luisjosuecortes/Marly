@@ -1520,6 +1520,241 @@ ipcMain.handle("get-productos-por-categoria", (_event, categoria) => {
     return [];
   }
 });
+ipcMain.handle("get-movimientos-inventario-recientes", (_event, limite = 20) => {
+  try {
+    const movimientos = db.prepare(`
+      SELECT 
+        'entrada' as tipo,
+        e.id_entrada as id,
+        e.fecha_entrada as fecha,
+        e.folio_producto,
+        e.cantidad_recibida as cantidad,
+        e.talla,
+        e.costo_unitario_proveedor as costo,
+        e.precio_unitario_base as precio,
+        e.tipo_movimiento,
+        p.nombre_producto,
+        p.categoria,
+        p.proveedor,
+        NULL as cliente
+      FROM entradas e
+      LEFT JOIN productos p ON e.folio_producto = p.folio_producto
+      WHERE e.tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
+      
+      UNION ALL
+      
+      SELECT 
+        'venta' as tipo,
+        v.id_venta as id,
+        v.fecha_venta as fecha,
+        v.folio_producto,
+        v.cantidad_vendida as cantidad,
+        v.talla,
+        NULL as costo,
+        v.precio_unitario_real as precio,
+        v.tipo_salida as tipo_movimiento,
+        p.nombre_producto,
+        p.categoria,
+        p.proveedor,
+        c.nombre_completo as cliente
+      FROM ventas v
+      LEFT JOIN productos p ON v.folio_producto = p.folio_producto
+      LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
+      
+      ORDER BY fecha DESC
+      LIMIT ?
+    `).all(limite);
+    return movimientos;
+  } catch (error) {
+    console.error("Error al obtener movimientos de inventario:", error);
+    return [];
+  }
+});
+ipcMain.handle("get-entradas-kpis", () => {
+  try {
+    const hoy = /* @__PURE__ */ new Date();
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split("T")[0];
+    const inicioAnio = new Date(hoy.getFullYear(), 0, 1).toISOString().split("T")[0];
+    const finHoy = hoy.toISOString().split("T")[0];
+    const entradasMes = db.prepare(`
+      SELECT 
+        COUNT(*) as num_entradas,
+        COALESCE(SUM(cantidad_recibida), 0) as total_unidades,
+        COALESCE(SUM(cantidad_recibida * costo_unitario_proveedor), 0) as inversion_total,
+        COALESCE(SUM(cantidad_recibida * precio_unitario_base), 0) as valor_venta
+      FROM entradas
+      WHERE DATE(fecha_entrada) >= DATE(?) AND DATE(fecha_entrada) <= DATE(?)
+        AND tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
+    `).get(inicioMes, finHoy);
+    const entradasAnio = db.prepare(`
+      SELECT 
+        COUNT(*) as num_entradas,
+        COALESCE(SUM(cantidad_recibida), 0) as total_unidades,
+        COALESCE(SUM(cantidad_recibida * costo_unitario_proveedor), 0) as inversion_total,
+        COALESCE(SUM(cantidad_recibida * precio_unitario_base), 0) as valor_venta
+      FROM entradas
+      WHERE DATE(fecha_entrada) >= DATE(?) AND DATE(fecha_entrada) <= DATE(?)
+        AND tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
+    `).get(inicioAnio, finHoy);
+    const productosNuevosMes = db.prepare(`
+      SELECT COUNT(DISTINCT folio_producto) as cantidad
+      FROM entradas
+      WHERE DATE(fecha_entrada) >= DATE(?) AND DATE(fecha_entrada) <= DATE(?)
+        AND tipo_movimiento = 'Entrada Inicial'
+    `).get(inicioMes, finHoy);
+    const proveedoresActivosMes = db.prepare(`
+      SELECT COUNT(DISTINCT p.proveedor) as cantidad
+      FROM productos p
+      INNER JOIN entradas e ON p.folio_producto = e.folio_producto
+      WHERE DATE(e.fecha_entrada) >= DATE(?) AND DATE(e.fecha_entrada) <= DATE(?)
+        AND e.tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
+    `).get(inicioMes, finHoy);
+    return {
+      mes: {
+        numEntradas: (entradasMes == null ? void 0 : entradasMes.num_entradas) || 0,
+        totalUnidades: (entradasMes == null ? void 0 : entradasMes.total_unidades) || 0,
+        inversionTotal: (entradasMes == null ? void 0 : entradasMes.inversion_total) || 0,
+        valorVenta: (entradasMes == null ? void 0 : entradasMes.valor_venta) || 0,
+        gananciaProyectada: ((entradasMes == null ? void 0 : entradasMes.valor_venta) || 0) - ((entradasMes == null ? void 0 : entradasMes.inversion_total) || 0)
+      },
+      anio: {
+        numEntradas: (entradasAnio == null ? void 0 : entradasAnio.num_entradas) || 0,
+        totalUnidades: (entradasAnio == null ? void 0 : entradasAnio.total_unidades) || 0,
+        inversionTotal: (entradasAnio == null ? void 0 : entradasAnio.inversion_total) || 0,
+        valorVenta: (entradasAnio == null ? void 0 : entradasAnio.valor_venta) || 0,
+        gananciaProyectada: ((entradasAnio == null ? void 0 : entradasAnio.valor_venta) || 0) - ((entradasAnio == null ? void 0 : entradasAnio.inversion_total) || 0)
+      },
+      productosNuevosMes: (productosNuevosMes == null ? void 0 : productosNuevosMes.cantidad) || 0,
+      proveedoresActivosMes: (proveedoresActivosMes == null ? void 0 : proveedoresActivosMes.cantidad) || 0
+    };
+  } catch (error) {
+    console.error("Error al obtener KPIs de entradas:", error);
+    return {
+      mes: { numEntradas: 0, totalUnidades: 0, inversionTotal: 0, valorVenta: 0, gananciaProyectada: 0 },
+      anio: { numEntradas: 0, totalUnidades: 0, inversionTotal: 0, valorVenta: 0, gananciaProyectada: 0 },
+      productosNuevosMes: 0,
+      proveedoresActivosMes: 0
+    };
+  }
+});
+ipcMain.handle("get-entradas-recientes", (_event, limite = 20) => {
+  try {
+    const entradas = db.prepare(`
+      SELECT 
+        e.id_entrada,
+        e.fecha_entrada,
+        e.folio_producto,
+        e.cantidad_recibida,
+        e.talla,
+        e.costo_unitario_proveedor,
+        e.precio_unitario_base,
+        e.tipo_movimiento,
+        e.responsable_recepcion,
+        e.observaciones_entrada,
+        p.nombre_producto,
+        p.categoria,
+        p.proveedor
+      FROM entradas e
+      LEFT JOIN productos p ON e.folio_producto = p.folio_producto
+      WHERE e.tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
+      ORDER BY e.fecha_entrada DESC, e.id_entrada DESC
+      LIMIT ?
+    `).all(limite);
+    return entradas;
+  } catch (error) {
+    console.error("Error al obtener entradas recientes:", error);
+    return [];
+  }
+});
+ipcMain.handle("get-entradas-por-proveedor", () => {
+  try {
+    const hoy = /* @__PURE__ */ new Date();
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split("T")[0];
+    const finHoy = hoy.toISOString().split("T")[0];
+    const proveedores = db.prepare(`
+      SELECT 
+        p.proveedor,
+        COUNT(DISTINCT e.id_entrada) as num_entradas,
+        COALESCE(SUM(e.cantidad_recibida), 0) as total_unidades,
+        COALESCE(SUM(e.cantidad_recibida * e.costo_unitario_proveedor), 0) as inversion_total,
+        COUNT(DISTINCT p.folio_producto) as num_productos,
+        MAX(e.fecha_entrada) as ultima_entrada
+      FROM productos p
+      INNER JOIN entradas e ON p.folio_producto = e.folio_producto
+      WHERE e.tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
+        AND DATE(e.fecha_entrada) >= DATE(?) AND DATE(e.fecha_entrada) <= DATE(?)
+      GROUP BY p.proveedor
+      ORDER BY inversion_total DESC
+    `).all(inicioMes, finHoy);
+    return proveedores;
+  } catch (error) {
+    console.error("Error al obtener entradas por proveedor:", error);
+    return [];
+  }
+});
+ipcMain.handle("registrar-entrada-multiple-tallas", (_event, datos) => {
+  const { folio_producto, esNuevo, producto, tallas, responsable, observaciones } = datos;
+  const registrar = db.transaction(() => {
+    const fechaEntrada = (/* @__PURE__ */ new Date()).toISOString();
+    if (esNuevo && producto) {
+      const stmtProducto = db.prepare(`
+        INSERT INTO productos (
+          folio_producto, nombre_producto, categoria, genero_destino,
+          stock_actual, stock_minimo, proveedor, observaciones
+        ) VALUES (
+          @folio_producto, @nombre_producto, @categoria, @genero_destino,
+          0, 5, @proveedor, @observaciones
+        )
+      `);
+      stmtProducto.run(producto);
+    }
+    for (const t of tallas) {
+      if (t.cantidad <= 0) continue;
+      const stmtEntrada = db.prepare(`
+        INSERT INTO entradas (
+          fecha_entrada, folio_producto, cantidad_recibida, talla,
+          costo_unitario_proveedor, precio_unitario_base,
+          tipo_movimiento, responsable_recepcion, observaciones_entrada
+        ) VALUES (
+          @fecha, @folio, @cantidad, @talla,
+          @costo, @precio,
+          @tipo, @responsable, @observaciones
+        )
+      `);
+      stmtEntrada.run({
+        fecha: fechaEntrada,
+        folio: folio_producto,
+        cantidad: t.cantidad,
+        talla: t.talla,
+        costo: t.costo,
+        precio: t.precio,
+        tipo: esNuevo ? "Entrada Inicial" : "Reabastecimiento",
+        responsable: responsable || null,
+        observaciones: observaciones || null
+      });
+      db.prepare(`
+        UPDATE productos 
+        SET stock_actual = stock_actual + @cantidad,
+            fecha_ultima_actualizacion = CURRENT_TIMESTAMP
+        WHERE folio_producto = @folio
+      `).run({ cantidad: t.cantidad, folio: folio_producto });
+      db.prepare(`
+        INSERT INTO tallas_producto (folio_producto, talla, cantidad)
+        VALUES (@folio, @talla, @cantidad)
+        ON CONFLICT(folio_producto, talla) DO UPDATE SET
+          cantidad = cantidad + @cantidad,
+          fecha_actualizacion = CURRENT_TIMESTAMP
+      `).run({ folio: folio_producto, talla: t.talla, cantidad: t.cantidad });
+    }
+  });
+  try {
+    registrar();
+    return { success: true };
+  } catch (error) {
+    console.error("Error al registrar entrada con múltiples tallas:", error);
+    throw error;
+  }
+});
 let ventanaPrincipal;
 function crearVentana() {
   ventanaPrincipal = new BrowserWindow({

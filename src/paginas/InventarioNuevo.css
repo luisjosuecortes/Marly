@@ -457,3 +457,149 @@
         transform: rotate(360deg);
     }
 }
+
+/* Timeline de movimientos */
+.timeline-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.timeline-container {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.sin-movimientos {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    color: #64748b;
+    gap: 0.5rem;
+}
+
+.timeline-lista {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.timeline-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background 0.2s ease;
+}
+
+.timeline-item:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.timeline-item:last-child {
+    border-bottom: none;
+}
+
+.timeline-fecha {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 120px;
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.timeline-tipo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+}
+
+.icono-entrada {
+    color: #22c55e;
+}
+
+.icono-venta {
+    color: #f87171;
+}
+
+.timeline-contenido {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.timeline-producto {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.timeline-producto .folio {
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.timeline-producto .nombre {
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.timeline-detalles {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    font-size: 0.85rem;
+}
+
+.timeline-detalles .talla {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.timeline-detalles .cantidad {
+    font-weight: 700;
+}
+
+.timeline-detalles .cantidad.entrada {
+    color: #22c55e;
+}
+
+.timeline-detalles .cantidad.venta {
+    color: #f87171;
+}
+
+.timeline-detalles .precio {
+    color: #94a3b8;
+}
+
+.timeline-detalles .cliente {
+    color: #8b5cf6;
+}
+
+.timeline-meta {
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.timeline-meta .categoria {
+    background: rgba(148, 163, 184, 0.1);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+}
+
+.timeline-meta .tipo-mov {
+    font-style: italic;
+}

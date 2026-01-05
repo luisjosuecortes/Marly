@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Package, TrendingUp, DollarSign, AlertTriangle, Search, Filter, ChevronDown, ChevronUp, History, Edit2, RefreshCw, BoxIcon } from 'lucide-react'
+import { Package, TrendingUp, DollarSign, AlertTriangle, Search, Filter, ChevronDown, ChevronUp, History, Edit2, RefreshCw, BoxIcon, Clock, Calendar, ArrowDownCircle, ArrowUpCircle } from 'lucide-react'
 import { ModalAjuste } from '../componentes/ModalAjuste'
 import { ModalHistorialInventario } from '../componentes/ModalHistorialInventario'
 import './InventarioNuevo.css'
@@ -39,6 +39,22 @@ interface Producto {
     ultimo_costo?: number
 }
 
+interface MovimientoInventario {
+    tipo: 'entrada' | 'venta'
+    id: number
+    fecha: string
+    folio_producto: string
+    cantidad: number
+    talla: string
+    costo: number | null
+    precio: number
+    tipo_movimiento: string
+    nombre_producto: string | null
+    categoria: string
+    proveedor: string | null
+    cliente: string | null
+}
+
 // Iconos para categorías
 const iconosCategorias: Record<string, string> = {
     'Playera': '👕',
@@ -62,6 +78,7 @@ export function InventarioNuevo() {
     const [categorias, setCategorias] = useState<CategoriaStats[]>([])
     const [categoriaExpandida, setCategoriaExpandida] = useState<string | null>(null)
     const [productosCategoria, setProductosCategoria] = useState<Producto[]>([])
+    const [movimientos, setMovimientos] = useState<MovimientoInventario[]>([])
     const [cargando, setCargando] = useState(true)
     const [cargandoProductos, setCargandoProductos] = useState(false)
 
@@ -77,12 +94,14 @@ export function InventarioNuevo() {
     const cargarDatos = async () => {
         setCargando(true)
         try {
-            const [kpisData, categoriasData] = await Promise.all([
+            const [kpisData, categoriasData, movimientosData] = await Promise.all([
                 window.ipcRenderer.getInventarioKpis(),
-                window.ipcRenderer.getInventarioPorCategoria()
+                window.ipcRenderer.getInventarioPorCategoria(),
+                window.ipcRenderer.getMovimientosInventarioRecientes(15)
             ])
             setKpis(kpisData)
             setCategorias(categoriasData)
+            setMovimientos(movimientosData)
         } catch (error) {
             console.error('Error cargando datos de inventario:', error)
         } finally {
@@ -141,6 +160,15 @@ export function InventarioNuevo() {
             style: 'currency',
             currency: 'MXN'
         }).format(valor)
+    }
+
+    const formatearFecha = (fecha: string) => {
+        try {
+            const d = new Date(fecha)
+            return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+        } catch {
+            return fecha
+        }
     }
 
     const manejarGuardarAjuste = async (nuevoStock: number, motivo: string, talla: string) => {
@@ -361,6 +389,60 @@ export function InventarioNuevo() {
                                 )}
                             </div>
                         ))}
+                    </div>
+                </div>
+
+                {/* Timeline de Movimientos */}
+                <div className="timeline-section">
+                    <h2 className="seccion-titulo">
+                        <Clock size={20} />
+                        Movimientos Recientes
+                    </h2>
+                    <div className="timeline-container">
+                        {movimientos.length === 0 ? (
+                            <div className="sin-movimientos">
+                                <Package size={40} strokeWidth={1} />
+                                <p>No hay movimientos registrados</p>
+                            </div>
+                        ) : (
+                            <div className="timeline-lista">
+                                {movimientos.map((mov) => (
+                                    <div key={`${mov.tipo}-${mov.id}`} className={`timeline-item ${mov.tipo}`}>
+                                        <div className="timeline-fecha">
+                                            <Calendar size={14} />
+                                            {formatearFecha(mov.fecha)}
+                                        </div>
+                                        <div className="timeline-tipo">
+                                            {mov.tipo === 'entrada' ? (
+                                                <ArrowDownCircle size={18} className="icono-entrada" />
+                                            ) : (
+                                                <ArrowUpCircle size={18} className="icono-venta" />
+                                            )}
+                                        </div>
+                                        <div className="timeline-contenido">
+                                            <div className="timeline-producto">
+                                                <span className="folio">{mov.folio_producto}</span>
+                                                <span className="nombre">{mov.nombre_producto || '—'}</span>
+                                            </div>
+                                            <div className="timeline-detalles">
+                                                <span className="talla">{mov.talla}</span>
+                                                <span className={`cantidad ${mov.tipo}`}>
+                                                    {mov.tipo === 'entrada' ? '+' : '-'}{mov.cantidad}
+                                                </span>
+                                                <span className="precio">{formatearMoneda(mov.precio)}</span>
+                                                {mov.tipo === 'venta' && mov.cliente && (
+                                                    <span className="cliente">→ {mov.cliente}</span>
+                                                )}
+                                            </div>
+                                            <div className="timeline-meta">
+                                                <span className="categoria">{mov.categoria}</span>
+                                                <span className="tipo-mov">{mov.tipo_movimiento}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
