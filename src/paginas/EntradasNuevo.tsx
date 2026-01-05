@@ -94,6 +94,9 @@ export function EntradasNuevo() {
     const [mostrarProveedores, setMostrarProveedores] = useState(false)
     const [productoHistorial, setProductoHistorial] = useState<Producto | null>(null)
 
+    // Filtro de categorías para timeline
+    const [categoriasActivas, setCategoriasActivas] = useState<Set<string>>(new Set(Object.keys(iconosCategorias)))
+
     // Estado del formulario
     const [proveedores, setProveedores] = useState<string[]>([])
     const [buscandoProducto, setBuscandoProducto] = useState(false)
@@ -216,6 +219,20 @@ export function EntradasNuevo() {
     }, [productosCategoria, busqueda, filtroGenero])
 
     const generosDisponibles = ['Todos', ...Array.from(new Set(productosCategoria.map(p => p.genero_destino)))]
+
+    // Filtrar entradas por categorías activas
+    const entradasFiltradas = useMemo(() => {
+        return entradasRecientes.filter(e => categoriasActivas.has(e.categoria))
+    }, [entradasRecientes, categoriasActivas])
+
+    const toggleCategoriaFiltro = (cat: string) => {
+        setCategoriasActivas(prev => {
+            const next = new Set(prev)
+            if (next.has(cat)) next.delete(cat)
+            else next.add(cat)
+            return next
+        })
+    }
 
     const formatearMoneda = (valor: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(valor)
     const formatearFecha = (fecha: string) => {
@@ -440,12 +457,26 @@ export function EntradasNuevo() {
                 {/* Timeline de entradas recientes */}
                 <div className="timeline-section">
                     <h2 className="seccion-titulo"><Clock size={20} /> Entradas Recientes</h2>
+                    {/* Filtros de categoría */}
+                    <div className="filtros-categoria">
+                        {Object.entries(iconosCategorias).map(([cat, emoji]) => (
+                            <button
+                                key={cat}
+                                className={`btn-cat-filtro ${categoriasActivas.has(cat) ? 'activo' : ''}`}
+                                onClick={() => toggleCategoriaFiltro(cat)}
+                                title={cat}
+                            >
+                                <span className="emoji">{emoji}</span>
+                                <span className="nombre">{cat}</span>
+                            </button>
+                        ))}
+                    </div>
                     <div className="timeline-container">
-                        {entradasRecientes.length === 0 ? (
-                            <div className="sin-entradas"><Package size={40} strokeWidth={1} /><p>No hay entradas registradas</p></div>
+                        {entradasFiltradas.length === 0 ? (
+                            <div className="sin-entradas"><Package size={40} strokeWidth={1} /><p>No hay entradas en las categorías seleccionadas</p></div>
                         ) : (
                             <div className="timeline-lista">
-                                {entradasRecientes.map((e) => (
+                                {entradasFiltradas.map((e) => (
                                     <div key={e.id_entrada} className="timeline-item">
                                         <div className="timeline-fecha"><Calendar size={14} /> {formatearFecha(e.fecha_entrada)}</div>
                                         <div className="timeline-contenido">

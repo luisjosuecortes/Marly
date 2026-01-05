@@ -91,6 +91,9 @@ export function InventarioNuevo() {
     const [productoAEditar, setProductoAEditar] = useState<Producto | null>(null)
     const [productoHistorial, setProductoHistorial] = useState<Producto | null>(null)
 
+    // Filtro de categorías para timeline
+    const [categoriasActivas, setCategoriasActivas] = useState<Set<string>>(new Set(Object.keys(iconosCategorias)))
+
     const cargarDatos = async () => {
         setCargando(true)
         try {
@@ -154,6 +157,20 @@ export function InventarioNuevo() {
     // Géneros y tallas disponibles
     const generosDisponibles = ['Todos', ...Array.from(new Set(productosCategoria.map(p => p.genero_destino)))]
     const tallasDisponibles = ['Todas', ...Array.from(new Set(productosCategoria.flatMap(p => p.tallas_detalle?.map(t => t.talla) || []))).sort()]
+
+    // Filtrar movimientos por categorías activas
+    const movimientosFiltrados = useMemo(() => {
+        return movimientos.filter(m => categoriasActivas.has(m.categoria))
+    }, [movimientos, categoriasActivas])
+
+    const toggleCategoriaFiltro = (cat: string) => {
+        setCategoriasActivas(prev => {
+            const next = new Set(prev)
+            if (next.has(cat)) next.delete(cat)
+            else next.add(cat)
+            return next
+        })
+    }
 
     const formatearMoneda = (valor: number) => {
         return new Intl.NumberFormat('es-MX', {
@@ -398,15 +415,29 @@ export function InventarioNuevo() {
                         <Clock size={20} />
                         Movimientos Recientes
                     </h2>
+                    {/* Filtros de categoría */}
+                    <div className="filtros-categoria">
+                        {Object.entries(iconosCategorias).map(([cat, emoji]) => (
+                            <button
+                                key={cat}
+                                className={`btn-cat-filtro ${categoriasActivas.has(cat) ? 'activo' : ''}`}
+                                onClick={() => toggleCategoriaFiltro(cat)}
+                                title={cat}
+                            >
+                                <span className="emoji">{emoji}</span>
+                                <span className="nombre">{cat}</span>
+                            </button>
+                        ))}
+                    </div>
                     <div className="timeline-container">
-                        {movimientos.length === 0 ? (
+                        {movimientosFiltrados.length === 0 ? (
                             <div className="sin-movimientos">
                                 <Package size={40} strokeWidth={1} />
-                                <p>No hay movimientos registrados</p>
+                                <p>No hay movimientos en las categorías seleccionadas</p>
                             </div>
                         ) : (
                             <div className="timeline-lista">
-                                {movimientos.map((mov) => (
+                                {movimientosFiltrados.map((mov) => (
                                     <div key={`${mov.tipo}-${mov.id}`} className={`timeline-item ${mov.tipo}`}>
                                         <div className="timeline-fecha">
                                             <Calendar size={14} />
