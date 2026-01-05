@@ -52,5 +52,9 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
   getProductosMasVendidos: (filtro) => electron.ipcRenderer.invoke("get-productos-mas-vendidos", filtro || {}),
   getVentasPorCategoria: (filtro) => electron.ipcRenderer.invoke("get-ventas-por-categoria", filtro || {}),
   getVentasPorTipo: (filtro) => electron.ipcRenderer.invoke("get-ventas-por-tipo", filtro || {}),
-  getClientesConSaldo: () => electron.ipcRenderer.invoke("get-clientes-con-saldo")
+  getClientesConSaldo: () => electron.ipcRenderer.invoke("get-clientes-con-saldo"),
+  // Inventario - KPIs y Categorías
+  getInventarioKpis: () => electron.ipcRenderer.invoke("get-inventario-kpis"),
+  getInventarioPorCategoria: () => electron.ipcRenderer.invoke("get-inventario-por-categoria"),
+  getProductosPorCategoria: (categoria) => electron.ipcRenderer.invoke("get-productos-por-categoria", categoria)
 });

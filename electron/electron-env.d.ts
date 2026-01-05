@@ -59,5 +59,25 @@ interface Window {
       saldo_pendiente: number
       estado_cuenta: string
     }>>
+    // Inventario - KPIs y Categorías
+    getInventarioKpis: () => Promise<{
+      valorInventarioCosto: number
+      valorInventarioVenta: number
+      gananciaProyectada: number
+      totalProductos: number
+      totalUnidades: number
+      totalCategorias: number
+      productosBajoStock: number
+      productosSinStock: number
+    }>
+    getInventarioPorCategoria: () => Promise<Array<{
+      categoria: string
+      numProductos: number
+      totalUnidades: number
+      valorCosto: number
+      valorVenta: number
+      gananciaProyectada: number
+    }>>
+    getProductosPorCategoria: (categoria: string) => Promise<any[]>
   }
 }

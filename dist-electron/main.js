@@ -1387,6 +1387,139 @@ ipcMain.handle("get-clientes-con-saldo", () => {
   `).all();
   return clientes;
 });
+ipcMain.handle("get-inventario-kpis", () => {
+  try {
+    const valorInventario = db.prepare(`
+      SELECT COALESCE(SUM(
+        tp.cantidad * (
+          SELECT COALESCE(e.costo_unitario_proveedor, 0)
+          FROM entradas e
+          WHERE e.folio_producto = tp.folio_producto AND e.talla = tp.talla
+          ORDER BY e.fecha_entrada DESC
+          LIMIT 1
+        )
+      ), 0) as valor_costo,
+      COALESCE(SUM(
+        tp.cantidad * (
+          SELECT COALESCE(e.precio_unitario_base, 0)
+          FROM entradas e
+          WHERE e.folio_producto = tp.folio_producto AND e.talla = tp.talla
+          ORDER BY e.fecha_entrada DESC
+          LIMIT 1
+        )
+      ), 0) as valor_venta
+      FROM tallas_producto tp
+      WHERE tp.cantidad > 0
+    `).get();
+    const conteos = db.prepare(`
+      SELECT 
+        COUNT(DISTINCT p.folio_producto) as total_productos,
+        COALESCE(SUM(tp.cantidad), 0) as total_unidades,
+        COUNT(DISTINCT p.categoria) as total_categorias
+      FROM productos p
+      LEFT JOIN tallas_producto tp ON p.folio_producto = tp.folio_producto
+    `).get();
+    const bajoStock = db.prepare(`
+      SELECT COUNT(*) as cantidad
+      FROM productos
+      WHERE stock_actual <= stock_minimo AND stock_actual > 0
+    `).get();
+    const sinStock = db.prepare(`
+      SELECT COUNT(*) as cantidad
+      FROM productos
+      WHERE stock_actual = 0
+    `).get();
+    return {
+      valorInventarioCosto: (valorInventario == null ? void 0 : valorInventario.valor_costo) || 0,
+      valorInventarioVenta: (valorInventario == null ? void 0 : valorInventario.valor_venta) || 0,
+      gananciaProyectada: ((valorInventario == null ? void 0 : valorInventario.valor_venta) || 0) - ((valorInventario == null ? void 0 : valorInventario.valor_costo) || 0),
+      totalProductos: (conteos == null ? void 0 : conteos.total_productos) || 0,
+      totalUnidades: (conteos == null ? void 0 : conteos.total_unidades) || 0,
+      totalCategorias: (conteos == null ? void 0 : conteos.total_categorias) || 0,
+      productosBajoStock: (bajoStock == null ? void 0 : bajoStock.cantidad) || 0,
+      productosSinStock: (sinStock == null ? void 0 : sinStock.cantidad) || 0
+    };
+  } catch (error) {
+    console.error("Error al obtener KPIs de inventario:", error);
+    return {
+      valorInventarioCosto: 0,
+      valorInventarioVenta: 0,
+      gananciaProyectada: 0,
+      totalProductos: 0,
+      totalUnidades: 0,
+      totalCategorias: 0,
+      productosBajoStock: 0,
+      productosSinStock: 0
+    };
+  }
+});
+ipcMain.handle("get-inventario-por-categoria", () => {
+  try {
+    const categorias = db.prepare(`
+      SELECT 
+        p.categoria,
+        COUNT(DISTINCT p.folio_producto) as num_productos,
+        COALESCE(SUM(tp.cantidad), 0) as total_unidades,
+        COALESCE(SUM(
+          tp.cantidad * (
+            SELECT COALESCE(e.costo_unitario_proveedor, 0)
+            FROM entradas e
+            WHERE e.folio_producto = tp.folio_producto AND e.talla = tp.talla
+            ORDER BY e.fecha_entrada DESC
+            LIMIT 1
+          )
+        ), 0) as valor_costo,
+        COALESCE(SUM(
+          tp.cantidad * (
+            SELECT COALESCE(e.precio_unitario_base, 0)
+            FROM entradas e
+            WHERE e.folio_producto = tp.folio_producto AND e.talla = tp.talla
+            ORDER BY e.fecha_entrada DESC
+            LIMIT 1
+          )
+        ), 0) as valor_venta
+      FROM productos p
+      LEFT JOIN tallas_producto tp ON p.folio_producto = tp.folio_producto
+      GROUP BY p.categoria
+      ORDER BY p.categoria ASC
+    `).all();
+    return categorias.map((cat) => ({
+      categoria: cat.categoria,
+      numProductos: cat.num_productos,
+      totalUnidades: cat.total_unidades,
+      valorCosto: cat.valor_costo,
+      valorVenta: cat.valor_venta,
+      gananciaProyectada: cat.valor_venta - cat.valor_costo
+    }));
+  } catch (error) {
+    console.error("Error al obtener inventario por categoría:", error);
+    return [];
+  }
+});
+ipcMain.handle("get-productos-por-categoria", (_event, categoria) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT 
+        p.*, 
+        json_group_array(json_object('talla', tp.talla, 'cantidad', tp.cantidad)) as tallas_detalle,
+        (SELECT precio_unitario_base FROM entradas WHERE folio_producto = p.folio_producto ORDER BY id_entrada DESC LIMIT 1) as ultimo_precio,
+        (SELECT costo_unitario_proveedor FROM entradas WHERE folio_producto = p.folio_producto ORDER BY id_entrada DESC LIMIT 1) as ultimo_costo
+      FROM productos p
+      LEFT JOIN tallas_producto tp ON p.folio_producto = tp.folio_producto
+      WHERE p.categoria = ?
+      GROUP BY p.folio_producto
+      ORDER BY p.nombre_producto ASC
+    `);
+    const productos = stmt.all(categoria);
+    return productos.map((p) => ({
+      ...p,
+      tallas_detalle: p.tallas_detalle ? JSON.parse(p.tallas_detalle) : []
+    }));
+  } catch (error) {
+    console.error("Error al obtener productos por categoría:", error);
+    return [];
+  }
+});
 let ventanaPrincipal;
 function crearVentana() {
   ventanaPrincipal = new BrowserWindow({

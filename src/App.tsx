@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Encabezado, type Pagina } from './componentes/Encabezado'
 import { Ventas } from './paginas/Ventas'
-import { Inventario } from './paginas/Inventario'
+import { InventarioNuevo } from './paginas/InventarioNuevo'
 import { Entradas } from './paginas/Entradas'
 import { Estadisticas } from './paginas/Estadisticas'
 import './App.css'
@@ -14,7 +14,7 @@ function App() {
       case 'ventas':
         return <Ventas />
       case 'inventario':
-        return <Inventario />
+        return <InventarioNuevo />
       case 'entradas':
         return <Entradas />
       case 'estadisticas':

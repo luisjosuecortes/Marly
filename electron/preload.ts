@@ -55,4 +55,8 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   getVentasPorCategoria: (filtro?: { fechaInicio?: string, fechaFin?: string }) => ipcRenderer.invoke('get-ventas-por-categoria', filtro || {}),
   getVentasPorTipo: (filtro?: { fechaInicio?: string, fechaFin?: string }) => ipcRenderer.invoke('get-ventas-por-tipo', filtro || {}),
   getClientesConSaldo: () => ipcRenderer.invoke('get-clientes-con-saldo'),
+  // Inventario - KPIs y Categorías
+  getInventarioKpis: () => ipcRenderer.invoke('get-inventario-kpis'),
+  getInventarioPorCategoria: () => ipcRenderer.invoke('get-inventario-por-categoria'),
+  getProductosPorCategoria: (categoria: string) => ipcRenderer.invoke('get-productos-por-categoria', categoria),
 })
