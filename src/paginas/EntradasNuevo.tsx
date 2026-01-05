@@ -71,8 +71,8 @@ const TALLAS = [
 const iconosCategorias: Record<string, string> = {
     'Playera': '👕', 'Camisa': '👔', 'Pantalon': '👖', 'Blusa': '👚',
     'Chamarra': '🧥', 'Sudadera': '🧤', 'Gorra': '🧢', 'Cinturon': '🎗️',
-    'Sueter': '🧶', 'Leggin': '🩱', 'Vestido': '👗', 'Falda': '🩳',
-    'Pans': '🩲', 'Short': '🩳'
+    'Sueter': '🧶', 'Leggin': '🩱', 'Vestido': '👗', 'Falda': '👗',
+    'Pans': '🏃', 'Short': '🩳'
 }
 
 export function EntradasNuevo() {

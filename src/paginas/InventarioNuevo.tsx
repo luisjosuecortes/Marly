@@ -68,8 +68,8 @@ const iconosCategorias: Record<string, string> = {
     'Sueter': '🧶',
     'Leggin': '🩱',
     'Vestido': '👗',
-    'Falda': '🩳',
-    'Pans': '🩲',
+    'Falda': '👗',
+    'Pans': '🏃',
     'Short': '🩳'
 }
 
