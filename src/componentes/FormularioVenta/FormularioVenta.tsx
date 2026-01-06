@@ -463,9 +463,9 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
                     id="precio_unitario_real"
                     name="precio_unitario_real"
                     type="number"
-                    step="0.01"
+                    step="50"
                     min="0"
-                    value={venta.precio_unitario_real}
+                    value={venta.precio_unitario_real === 0 ? '' : venta.precio_unitario_real}
                     onChange={manejarCambio}
                     required
                     disabled={productoEncontrado ? true : false}
@@ -482,9 +482,9 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
                     id="descuento_aplicado"
                     name="descuento_aplicado"
                     type="number"
-                    step="0.01"
+                    step="50"
                     min="0"
-                    value={venta.descuento_aplicado}
+                    value={venta.descuento_aplicado === 0 ? '' : venta.descuento_aplicado}
                     onChange={manejarCambio}
                   />
                 </div>
@@ -548,7 +548,7 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
                       id="abono_inicial"
                       name="abono_inicial"
                       type="number"
-                      step="0.01"
+                      step="50"
                       min="0"
                       max={productoEncontrado && venta.talla ? (Number(venta.precio_unitario_real || 0) * Number(venta.cantidad_vendida || 0)) - Number(venta.descuento_aplicado || 0) : undefined}
                       value={venta.abono_inicial === 0 ? '' : venta.abono_inicial}

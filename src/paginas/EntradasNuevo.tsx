@@ -653,8 +653,8 @@ export function EntradasNuevo() {
                                                 {TALLAS.map(talla => <option key={talla} value={talla}>{talla}</option>)}
                                             </select>
                                             <input type="number" min="1" value={t.cantidad} onChange={(e) => actualizarTalla(i, 'cantidad', parseInt(e.target.value) || 0)} />
-                                            <div className="input-moneda"><span>$</span><input type="number" min="0" step="0.50" value={t.costo} onChange={(e) => actualizarTalla(i, 'costo', parseFloat(e.target.value) || 0)} /></div>
-                                            <div className="input-moneda"><span>$</span><input type="number" min="0" step="0.50" value={t.precio} onChange={(e) => actualizarTalla(i, 'precio', parseFloat(e.target.value) || 0)} /></div>
+                                            <div className="input-moneda"><span>$</span><input type="number" min="0" step="50" value={t.costo === 0 ? '' : t.costo} onChange={(e) => actualizarTalla(i, 'costo', parseFloat(e.target.value) || 0)} /></div>
+                                            <div className="input-moneda"><span>$</span><input type="number" min="0" step="50" value={t.precio === 0 ? '' : t.precio} onChange={(e) => actualizarTalla(i, 'precio', parseFloat(e.target.value) || 0)} /></div>
                                             {tallasEntrada.length > 1 && <button type="button" className="btn-quitar" onClick={() => quitarTalla(i)}><Trash2 size={16} /></button>}
                                         </div>
                                     ))}

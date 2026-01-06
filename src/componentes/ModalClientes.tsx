@@ -120,7 +120,7 @@ export function ModalClientes({ alCerrar }: PropsModalClientes) {
             <div className="input-grupo">
               <input
                 type="number"
-                step="0.01"
+                step="50"
                 min="0"
                 placeholder="Saldo pendiente inicial (opcional)..."
                 value={nuevoCliente.saldo_pendiente || ''}

@@ -310,7 +310,7 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
                       <input
                         id="saldo_pendiente"
                         type="number"
-                        step="0.01"
+                        step="50"
                         min="0"
                         placeholder="0.00"
                         value={nuevoCliente.saldo_pendiente || ''}

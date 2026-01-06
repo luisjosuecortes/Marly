@@ -247,7 +247,7 @@ export function ModalProductosPendientes({
                 </label>
                 <input
                   type="number"
-                  step="0.01"
+                  step="50"
                   min="0.01"
                   max={saldoHuerfano}
                   value={montoAbono}
@@ -338,7 +338,7 @@ export function ModalProductosPendientes({
                           </label>
                           <input
                             type="number"
-                            step="0.01"
+                            step="50"
                             min="0.01"
                             max={saldoHuerfano}
                             value={montoAbono}
@@ -441,7 +441,7 @@ export function ModalProductosPendientes({
                           <input
                             id={`monto-${producto.id_venta}`}
                             type="number"
-                            step="0.01"
+                            step="50"
                             min="0.01"
                             max={Math.min(producto.monto_faltante, saldoActual)}
                             value={montoAbono}

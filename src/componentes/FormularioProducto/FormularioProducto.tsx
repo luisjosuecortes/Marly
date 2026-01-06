@@ -46,7 +46,7 @@ export function FormularioProducto({ alCerrar, alGuardar }: PropsFormularioProdu
       cargarProveedores()
     }
     window.addEventListener('proveedores-actualizados', handleActualizacion)
-    
+
     return () => {
       window.removeEventListener('proveedores-actualizados', handleActualizacion)
     }
@@ -86,15 +86,15 @@ export function FormularioProducto({ alCerrar, alGuardar }: PropsFormularioProdu
         const existente = await window.ipcRenderer.getProductoDetalle(producto.folio_producto)
         if (existente) {
           setEsExistente(true)
-          setProducto(prev => ({ 
-            ...prev, 
+          setProducto(prev => ({
+            ...prev,
             nombre_producto: existente.nombre_producto || '',
             categoria: existente.categoria || CATEGORIAS[0],
             genero_destino: existente.genero_destino || GENEROS[1],
             proveedor: existente.proveedor || '',
             observaciones: existente.observaciones || ''
           }))
-          
+
           // Obtener última entrada para pre-llenar costo y precio
           const ultimaEntrada = await window.ipcRenderer.getUltimaEntrada(producto.folio_producto)
           if (ultimaEntrada) {
@@ -181,9 +181,9 @@ export function FormularioProducto({ alCerrar, alGuardar }: PropsFormularioProdu
       if (alCerrar) alCerrar()
       if (!alCerrar) {
         // Reset parcial si no cierra
-        setProducto(prev => ({ 
-          ...prev, 
-          folio_producto: '', 
+        setProducto(prev => ({
+          ...prev,
+          folio_producto: '',
           nombre_producto: '',
         }))
         setEntrada(prev => ({ ...prev, cantidad_recibida: 1, costo_unitario_proveedor: 0, precio_unitario_base: 0 }))
@@ -223,10 +223,10 @@ export function FormularioProducto({ alCerrar, alGuardar }: PropsFormularioProdu
         {/* DATOS PRINCIPALES */}
         <div className="seccion-formulario-limpia">
           <h3 className="titulo-seccion"></h3>
-          
+
           <div className="fila-formulario">
             <div className="grupo-formulario">
-              <label htmlFor="folio_producto">Folio {buscando && <span style={{fontSize: '0.7em'}}>(Buscando...)</span>}</label>
+              <label htmlFor="folio_producto">Folio {buscando && <span style={{ fontSize: '0.7em' }}>(Buscando...)</span>}</label>
               <div style={{ position: 'relative' }}>
                 <input
                   id="folio_producto"
@@ -292,7 +292,7 @@ export function FormularioProducto({ alCerrar, alGuardar }: PropsFormularioProdu
                 ))}
               </select>
             </div>
-             <div className="grupo-formulario">
+            <div className="grupo-formulario">
               <label htmlFor="talla">Talla</label>
               <select
                 id="talla"
@@ -332,8 +332,8 @@ export function FormularioProducto({ alCerrar, alGuardar }: PropsFormularioProdu
                 name="costo_unitario_proveedor"
                 type="number"
                 min="0"
-                step="0.50"
-                value={entrada.costo_unitario_proveedor}
+                step="50"
+                value={entrada.costo_unitario_proveedor === 0 ? '' : entrada.costo_unitario_proveedor}
                 onChange={manejarCambioEntrada}
                 required
               />
@@ -345,8 +345,8 @@ export function FormularioProducto({ alCerrar, alGuardar }: PropsFormularioProdu
                 name="precio_unitario_base"
                 type="number"
                 min="0"
-                step="0.50"
-                value={entrada.precio_unitario_base}
+                step="50"
+                value={entrada.precio_unitario_base === 0 ? '' : entrada.precio_unitario_base}
                 onChange={manejarCambioEntrada}
                 required
               />
