@@ -51,7 +51,9 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
     notas: ''
   })
 
-  // Cargar clientes al montar
+  // Cargar clientes y responsables al montar
+  const [responsables, setResponsables] = useState<{ id_responsable: number, nombre: string }[]>([])
+
   useEffect(() => {
     const cargarClientes = async () => {
       try {
@@ -61,15 +63,28 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
         console.error('Error cargando clientes:', err)
       }
     }
-    cargarClientes()
 
-    const handleActualizacion = () => {
-      cargarClientes()
+    const cargarResponsables = async () => {
+      try {
+        const datos = await window.ipcRenderer.getResponsables()
+        setResponsables(datos)
+      } catch (err) {
+        console.error('Error cargando responsables:', err)
+      }
     }
-    window.addEventListener('clientes-actualizados', handleActualizacion)
+
+    cargarClientes()
+    cargarResponsables()
+
+    const handleActualizacionClientes = () => cargarClientes()
+    const handleActualizacionResponsables = () => cargarResponsables()
+
+    window.addEventListener('clientes-actualizados', handleActualizacionClientes)
+    window.addEventListener('responsables-actualizados', handleActualizacionResponsables)
 
     return () => {
-      window.removeEventListener('clientes-actualizados', handleActualizacion)
+      window.removeEventListener('clientes-actualizados', handleActualizacionClientes)
+      window.removeEventListener('responsables-actualizados', handleActualizacionResponsables)
     }
   }, [])
 
@@ -526,15 +541,20 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
                 </div>
                 <div className="grupo-formulario">
                   <label htmlFor="responsable_caja">Responsable</label>
-                  <input
+                  <select
                     id="responsable_caja"
                     name="responsable_caja"
-                    type="text"
-                    placeholder="Nombre"
                     value={venta.responsable_caja}
                     onChange={manejarCambio}
                     required
-                  />
+                  >
+                    <option value="">Seleccionar...</option>
+                    {responsables.map((r) => (
+                      <option key={r.id_responsable} value={r.nombre}>
+                        {r.nombre}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -566,18 +586,6 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
                     </small>
                   </div>
                 )}
-
-                <div className="grupo-formulario" style={{ flex: 2 }}>
-                  <label htmlFor="notas">Notas (opcional)</label>
-                  <input
-                    id="notas"
-                    name="notas"
-                    type="text"
-                    placeholder="Observaciones..."
-                    value={venta.notas}
-                    onChange={manejarCambio}
-                  />
-                </div>
               </div>
 
               {stockDisponible > 0 && Number(venta.cantidad_vendida) > 0 && Number(venta.precio_unitario_real) > 0 && (

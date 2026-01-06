@@ -29,6 +29,10 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
   getProveedores: () => electron.ipcRenderer.invoke("get-proveedores"),
   agregarProveedor: (nombre) => electron.ipcRenderer.invoke("agregar-proveedor", nombre),
   eliminarProveedor: (nombre) => electron.ipcRenderer.invoke("eliminar-proveedor", nombre),
+  // Responsables
+  getResponsables: () => electron.ipcRenderer.invoke("get-responsables"),
+  agregarResponsable: (nombre) => electron.ipcRenderer.invoke("agregar-responsable", nombre),
+  eliminarResponsable: (id) => electron.ipcRenderer.invoke("eliminar-responsable", id),
   getUltimaEntrada: (folio) => electron.ipcRenderer.invoke("get-ultima-entrada", folio),
   eliminarEntrada: (id_entrada) => electron.ipcRenderer.invoke("eliminar-entrada", id_entrada),
   getPrecioVenta: (datos) => electron.ipcRenderer.invoke("get-precio-venta", datos),

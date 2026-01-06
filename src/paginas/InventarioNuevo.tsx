@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Package, TrendingUp, DollarSign, AlertTriangle, Search, Filter, ChevronDown, ChevronUp, History, Edit2, RefreshCw, BoxIcon, Clock, Calendar, ArrowDownCircle, ArrowUpCircle } from 'lucide-react'
+import { Package, TrendingUp, DollarSign, AlertTriangle, Search, Filter, ChevronDown, ChevronUp, History, Edit2, BoxIcon, Clock, Calendar, ArrowDownCircle, ArrowUpCircle } from 'lucide-react'
 import { ModalAjuste } from '../componentes/ModalAjuste'
 import { ModalHistorialInventario } from '../componentes/ModalHistorialInventario'
 import './InventarioNuevo.css'
@@ -242,9 +242,7 @@ export function InventarioNuevo() {
                         <p className="etiqueta">Gestión</p>
                         <h1 className="tabla-titulo">Inventario por Categorías</h1>
                     </div>
-                    <button className="btn-refresh" onClick={cargarDatos} disabled={cargando}>
-                        <RefreshCw size={16} className={cargando ? 'spinning' : ''} />
-                    </button>
+
                 </div>
 
                 {/* KPIs Generales */}

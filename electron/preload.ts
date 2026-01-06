@@ -31,6 +31,10 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   getProveedores: () => ipcRenderer.invoke('get-proveedores'),
   agregarProveedor: (nombre: string) => ipcRenderer.invoke('agregar-proveedor', nombre),
   eliminarProveedor: (nombre: string) => ipcRenderer.invoke('eliminar-proveedor', nombre),
+  // Responsables
+  getResponsables: () => ipcRenderer.invoke('get-responsables'),
+  agregarResponsable: (nombre: string) => ipcRenderer.invoke('agregar-responsable', nombre),
+  eliminarResponsable: (id: number) => ipcRenderer.invoke('eliminar-responsable', id),
   getUltimaEntrada: (folio: string) => ipcRenderer.invoke('get-ultima-entrada', folio),
   eliminarEntrada: (id_entrada: number) => ipcRenderer.invoke('eliminar-entrada', id_entrada),
   getPrecioVenta: (datos: { folio_producto: string, talla: string }) => ipcRenderer.invoke('get-precio-venta', datos),

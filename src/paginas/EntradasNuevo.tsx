@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Package, TrendingUp, DollarSign, Plus, Building2, Search, Filter, ChevronDown, ChevronUp, History, RefreshCw, BoxIcon, Clock, Calendar, ArrowDownCircle, X, Save, AlertCircle, Trash2 } from 'lucide-react'
+import { Package, TrendingUp, DollarSign, Plus, Building2, Search, Filter, ChevronDown, ChevronUp, History, BoxIcon, Clock, Calendar, ArrowDownCircle, X, Save, AlertCircle, Trash2 } from 'lucide-react'
 import { ModalProveedores } from '../componentes/ModalProveedores'
 import { ModalHistorialEntradas } from '../componentes/ModalHistorialEntradas'
 import './EntradasNuevo.css'
@@ -331,9 +331,7 @@ export function EntradasNuevo() {
                         <button className="accion-primaria" onClick={() => setMostrarFormulario(true)}>
                             <Plus size={18} /> Nueva Entrada
                         </button>
-                        <button className="btn-refresh" onClick={cargarDatos} disabled={cargando}>
-                            <RefreshCw size={16} className={cargando ? 'spinning' : ''} />
-                        </button>
+
                     </div>
                 </div>
 

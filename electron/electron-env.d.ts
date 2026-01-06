@@ -12,6 +12,10 @@ interface Window {
     getProveedores: () => Promise<string[]>
     agregarProveedor: (nombre: string) => Promise<{ success: true }>
     eliminarProveedor: (nombre: string) => Promise<{ success: true }>
+    // Responsables
+    getResponsables: () => Promise<Array<{ id_responsable: number, nombre: string }>>
+    agregarResponsable: (nombre: string) => Promise<{ success: true, id: number }>
+    eliminarResponsable: (id: number) => Promise<{ success: true }>
     getUltimaEntrada: (folio: string) => Promise<{ costo_unitario_proveedor: number, precio_unitario_base: number } | null>
     eliminarEntrada: (id_entrada: number) => Promise<{ success: true }>
     getPrecioVenta: (datos: { folio_producto: string, talla: string }) => Promise<{ precio_unitario_base: number }>

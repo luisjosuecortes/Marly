@@ -44,10 +44,22 @@ export function ModalProductosPendientes({
   const [guardando, setGuardando] = useState(false)
   // Estado local para el saldo que se actualiza en tiempo real
   const [saldoActual, setSaldoActual] = useState(saldoPendiente)
+  // Responsables list
+  const [responsables, setResponsables] = useState<{ id_responsable: number, nombre: string }[]>([])
 
   useEffect(() => {
     cargarProductos()
+    cargarResponsables()
   }, [idCliente])
+
+  const cargarResponsables = async () => {
+    try {
+      const datos = await window.ipcRenderer.getResponsables()
+      setResponsables(datos)
+    } catch (err) {
+      console.error('Error cargando responsables:', err)
+    }
+  }
 
   const cargarProductos = async () => {
     setCargando(true)
@@ -257,12 +269,15 @@ export function ModalProductosPendientes({
               </div>
               <div className="input-abono-compacto">
                 <label className="label-abono">Responsable</label>
-                <input
-                  type="text"
+                <select
                   value={responsable}
                   onChange={(e) => setResponsable(e.target.value)}
-                  placeholder="Nombre"
-                />
+                >
+                  <option value="">Seleccionar...</option>
+                  {responsables.map((r) => (
+                    <option key={r.id_responsable} value={r.nombre}>{r.nombre}</option>
+                  ))}
+                </select>
               </div>
               <button
                 className="btn-confirmar-abono-compacto"
@@ -348,12 +363,15 @@ export function ModalProductosPendientes({
                         </div>
                         <div className="input-abono-compacto">
                           <label className="label-abono">Responsable</label>
-                          <input
-                            type="text"
+                          <select
                             value={responsable}
                             onChange={(e) => setResponsable(e.target.value)}
-                            placeholder="Nombre"
-                          />
+                          >
+                            <option value="">Seleccionar...</option>
+                            {responsables.map((r) => (
+                              <option key={r.id_responsable} value={r.nombre}>{r.nombre}</option>
+                            ))}
+                          </select>
                         </div>
                         <button
                           className="btn-confirmar-abono-compacto"
@@ -453,13 +471,16 @@ export function ModalProductosPendientes({
                           <label htmlFor={`responsable-${producto.id_venta}`} className="label-abono">
                             Responsable
                           </label>
-                          <input
+                          <select
                             id={`responsable-${producto.id_venta}`}
-                            type="text"
                             value={responsable}
                             onChange={(e) => setResponsable(e.target.value)}
-                            placeholder="Nombre"
-                          />
+                          >
+                            <option value="">Seleccionar...</option>
+                            {responsables.map((r) => (
+                              <option key={r.id_responsable} value={r.nombre}>{r.nombre}</option>
+                            ))}
+                          </select>
                         </div>
                         <button
                           className="btn-confirmar-abono-compacto"

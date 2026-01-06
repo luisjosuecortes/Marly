@@ -140,6 +140,39 @@ ipcMain.handle("eliminar-proveedor", (_event, nombre) => {
     throw error;
   }
 });
+ipcMain.handle("get-responsables", () => {
+  try {
+    const stmt = db.prepare("SELECT id_responsable, nombre FROM responsables WHERE activo = 1 ORDER BY nombre");
+    return stmt.all();
+  } catch (error) {
+    console.error("Error al obtener responsables:", error);
+    return [];
+  }
+});
+ipcMain.handle("agregar-responsable", (_event, nombre) => {
+  try {
+    const nombreTrim = nombre.trim();
+    if (!nombreTrim) throw new Error("El nombre no puede estar vacío");
+    const stmt = db.prepare("INSERT INTO responsables (nombre) VALUES (?)");
+    const result = stmt.run(nombreTrim);
+    return { success: true, id: result.lastInsertRowid };
+  } catch (error) {
+    if (error.code === "SQLITE_CONSTRAINT_UNIQUE") {
+      throw new Error("Este responsable ya existe.");
+    }
+    throw error;
+  }
+});
+ipcMain.handle("eliminar-responsable", (_event, id) => {
+  try {
+    const stmt = db.prepare("UPDATE responsables SET activo = 0 WHERE id_responsable = ?");
+    stmt.run(id);
+    return { success: true };
+  } catch (error) {
+    console.error("Error al eliminar responsable:", error);
+    throw error;
+  }
+});
 ipcMain.handle("get-historial-entradas", (_event, folio) => {
   try {
     const stmt = db.prepare(`

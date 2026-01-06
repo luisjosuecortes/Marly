@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { X, Plus, Trash2, User, Search, History, DollarSign } from 'lucide-react'
+import { X, Plus, Trash2, User, UserCheck, Search, History, DollarSign } from 'lucide-react'
 import { ModalHistorialCliente } from './ModalHistorialCliente'
 import { ModalProductosPendientes } from './ModalProductosPendientes'
+import { ModalResponsables } from './ModalResponsables'
 import './VistaClientes.css'
 
 interface Cliente {
@@ -29,6 +30,7 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
   const [busqueda, setBusqueda] = useState('')
   const [mostrarHistorial, setMostrarHistorial] = useState<{ id: number; nombre: string } | null>(null)
   const [mostrarProductosPendientes, setMostrarProductosPendientes] = useState<{ id: number; nombre: string; saldo: number } | null>(null)
+  const [mostrarResponsables, setMostrarResponsables] = useState(false)
 
   useEffect(() => {
     cargarClientes()
@@ -155,6 +157,13 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
                 >
                   <Plus size={18} />
                   Añadir Cliente
+                </button>
+                <button
+                  className="btn-secundario"
+                  onClick={() => setMostrarResponsables(true)}
+                >
+                  <UserCheck size={18} />
+                  Responsables
                 </button>
               </div>
             )}
@@ -351,6 +360,10 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
           alCerrar={() => setMostrarProductosPendientes(null)}
           onActualizar={cargarClientes}
         />
+      )}
+
+      {mostrarResponsables && (
+        <ModalResponsables alCerrar={() => setMostrarResponsables(false)} />
       )}
     </div>
   )

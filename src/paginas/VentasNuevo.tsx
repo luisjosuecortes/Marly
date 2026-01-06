@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { DollarSign, ShoppingBag, Clock, User, ChevronDown, ChevronUp, RefreshCw, History, Package } from 'lucide-react'
+import { DollarSign, ShoppingBag, Clock, User, ChevronDown, ChevronUp, History, Package } from 'lucide-react'
 import { FormularioVenta } from '../componentes/FormularioVenta/FormularioVenta'
 import { useProductos } from '../hooks/useProductos'
 import { VistaClientes } from '../componentes/VistaClientes'
@@ -45,7 +45,7 @@ export function VentasNuevo() {
     const [productoHistorial, setProductoHistorial] = useState<any | null>(null)
     const [productoSeleccionado, setProductoSeleccionado] = useState<any | null>(null)
     const [categoriaExpandida, setCategoriaExpandida] = useState<string | null>(null)
-    const [cargando, setCargando] = useState(false)
+
 
     const [kpis, setKpis] = useState<VentasKpis>({ ventasHoy: 0, totalCobrado: 0 })
     const [ventasRecientes, setVentasRecientes] = useState<VentaReciente[]>([])
@@ -81,7 +81,6 @@ export function VentasNuevo() {
     }, [productosDisponibles, categoriaExpandida])
 
     const cargarDatos = async () => {
-        setCargando(true)
         try {
             const [kpisData, recientesData] = await Promise.all([
                 window.ipcRenderer.getVentasKpisHoy(),
@@ -91,8 +90,6 @@ export function VentasNuevo() {
             setVentasRecientes(recientesData)
         } catch (error) {
             console.error('Error cargando datos:', error)
-        } finally {
-            setCargando(false)
         }
     }
 
@@ -120,6 +117,7 @@ export function VentasNuevo() {
     const formatearMoneda = (valor: number) => {
         return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(valor)
     }
+
 
 
 
@@ -161,9 +159,6 @@ export function VentasNuevo() {
                         <h1 className="tabla-titulo">Ventas</h1>
                     </div>
                     <div className="ventas-acciones">
-                        <button className="btn-refresh" onClick={cargarDatos} disabled={cargando}>
-                            <RefreshCw size={16} className={cargando ? 'spinning' : ''} />
-                        </button>
                         <button className="btn-secundario" onClick={() => setMostrarClientes(true)}>
                             <User size={18} /> Clientes
                         </button>
