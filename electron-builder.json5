@@ -1,15 +1,24 @@
 // @see - https://www.electron.build/configuration/configuration
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "YourAppID",
+  "appId": "com.marly.app",
   "asar": true,
-  "productName": "YourAppName",
+  "productName": "Marly",
   "directories": {
     "output": "release/${version}"
   },
   "files": [
     "dist",
     "dist-electron"
+  ],
+  "asarUnpack": [
+    "node_modules/better-sqlite3/**"
+  ],
+  "extraResources": [
+    {
+      "from": "database/schema.sql",
+      "to": "database/schema.sql"
+    }
   ],
   "mac": {
     "target": [

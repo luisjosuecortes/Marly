@@ -24,24 +24,70 @@ export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 'public') : RENDERER_DIST
 const VITE_PUBLIC_DIR = process.env.VITE_PUBLIC as string
 
-// Inicializar base de datos
-const dbPath = path.join(process.env.APP_ROOT, 'database', 'marly.db')
-const schemaPath = path.join(process.env.APP_ROOT, 'database', 'schema.sql')
+// Determinar si la app está empaquetada
+const isPackaged = app.isPackaged
+
+// Rutas para la base de datos
+// En desarrollo: usamos la carpeta del proyecto
+// En producción: usamos userData (AppData en Windows, ~/.config en Linux, etc.)
+let dbDir: string
+let schemaPath: string
+
+if (isPackaged) {
+  // Producción: base de datos en userData (persistente y escribible)
+  dbDir = path.join(app.getPath('userData'), 'database')
+  // El schema está en resources (extraResources)
+  schemaPath = path.join(process.resourcesPath, 'database', 'schema.sql')
+} else {
+  // Desarrollo: base de datos en la carpeta del proyecto
+  dbDir = path.join(process.env.APP_ROOT, 'database')
+  schemaPath = path.join(process.env.APP_ROOT, 'database', 'schema.sql')
+}
+
+const dbPath = path.join(dbDir, 'marly.db')
 
 // Asegurar que el directorio de la base de datos existe
-if (!fs.existsSync(path.dirname(dbPath))) {
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true })
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true })
+}
+
+// Determinar la ruta del binding nativo de better-sqlite3
+let nativeBindingPath: string
+if (isPackaged) {
+  // En producción, el binding está en node_modules dentro de resources/app.asar.unpacked
+  nativeBindingPath = path.join(
+    process.resourcesPath,
+    'app.asar.unpacked',
+    'node_modules',
+    'better-sqlite3',
+    'build',
+    'Release',
+    'better_sqlite3.node'
+  )
+} else {
+  nativeBindingPath = path.join(
+    process.env.APP_ROOT,
+    'node_modules',
+    'better-sqlite3',
+    'build',
+    'Release',
+    'better_sqlite3.node'
+  )
 }
 
 // @ts-ignore
-const db = new Database(dbPath, { verbose: console.log, nativeBinding: path.join(process.env.APP_ROOT, 'node_modules', 'better-sqlite3', 'build', 'Release', 'better_sqlite3.node') })
+const db = new Database(dbPath, { verbose: console.log, nativeBinding: nativeBindingPath })
 
 // Ejecutar esquema si la base de datos es nueva o está vacía
 const initDb = () => {
   try {
-    const schema = fs.readFileSync(schemaPath, 'utf-8')
-    db.exec(schema)
-    console.log('Base de datos inicializada/verificada.')
+    if (fs.existsSync(schemaPath)) {
+      const schema = fs.readFileSync(schemaPath, 'utf-8')
+      db.exec(schema)
+      console.log('Base de datos inicializada/verificada.')
+    } else {
+      console.warn('Archivo de esquema no encontrado:', schemaPath)
+    }
   } catch (error) {
     console.error('Error al inicializar la base de datos:', error)
   }

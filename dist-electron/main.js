@@ -1,34 +1,49 @@
-import { ipcMain, app, BrowserWindow } from "electron";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
-import fs from "node:fs";
-import Database from "better-sqlite3";
-const __dirname$1 = path.dirname(fileURLToPath(import.meta.url));
-process.env.APP_ROOT = path.join(__dirname$1, "..");
-const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
-const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
-const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
-process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
-const VITE_PUBLIC_DIR = process.env.VITE_PUBLIC;
-const dbPath = path.join(process.env.APP_ROOT, "database", "marly.db");
-const schemaPath = path.join(process.env.APP_ROOT, "database", "schema.sql");
-if (!fs.existsSync(path.dirname(dbPath))) {
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-}
-const db = new Database(dbPath, { verbose: console.log, nativeBinding: path.join(process.env.APP_ROOT, "node_modules", "better-sqlite3", "build", "Release", "better_sqlite3.node") });
-const initDb = () => {
+import { app as h, ipcMain as l, BrowserWindow as U } from "electron";
+import { fileURLToPath as V } from "node:url";
+import A from "node:path";
+import L from "node:fs";
+import $ from "better-sqlite3";
+const F = A.dirname(V(import.meta.url));
+process.env.APP_ROOT = A.join(F, "..");
+const g = process.env.VITE_DEV_SERVER_URL, K = A.join(process.env.APP_ROOT, "dist-electron"), H = A.join(process.env.APP_ROOT, "dist");
+process.env.VITE_PUBLIC = g ? A.join(process.env.APP_ROOT, "public") : H;
+const Y = process.env.VITE_PUBLIC, w = h.isPackaged;
+let b, N;
+w ? (b = A.join(h.getPath("userData"), "database"), N = A.join(process.resourcesPath, "database", "schema.sql")) : (b = A.join(process.env.APP_ROOT, "database"), N = A.join(process.env.APP_ROOT, "database", "schema.sql"));
+const B = A.join(b, "marly.db");
+L.existsSync(b) || L.mkdirSync(b, { recursive: !0 });
+let I;
+w ? I = A.join(
+  process.resourcesPath,
+  "app.asar.unpacked",
+  "node_modules",
+  "better-sqlite3",
+  "build",
+  "Release",
+  "better_sqlite3.node"
+) : I = A.join(
+  process.env.APP_ROOT,
+  "node_modules",
+  "better-sqlite3",
+  "build",
+  "Release",
+  "better_sqlite3.node"
+);
+const e = new $(B, { verbose: console.log, nativeBinding: I }), k = () => {
   try {
-    const schema = fs.readFileSync(schemaPath, "utf-8");
-    db.exec(schema);
-    console.log("Base de datos inicializada/verificada.");
-  } catch (error) {
-    console.error("Error al inicializar la base de datos:", error);
+    if (L.existsSync(N)) {
+      const c = L.readFileSync(N, "utf-8");
+      e.exec(c), console.log("Base de datos inicializada/verificada.");
+    } else
+      console.warn("Archivo de esquema no encontrado:", N);
+  } catch (c) {
+    console.error("Error al inicializar la base de datos:", c);
   }
 };
-initDb();
-ipcMain.handle("get-productos", () => {
+k();
+l.handle("get-productos", () => {
   try {
-    const stmt = db.prepare(`
+    return e.prepare(`
       SELECT 
         p.*, 
         json_group_array(json_object('talla', tp.talla, 'cantidad', tp.cantidad)) as tallas_detalle,
@@ -37,50 +52,40 @@ ipcMain.handle("get-productos", () => {
       LEFT JOIN tallas_producto tp ON p.folio_producto = tp.folio_producto
       GROUP BY p.folio_producto
       ORDER BY p.fecha_ultima_actualizacion DESC
-    `);
-    const productos = stmt.all();
-    return productos.map((p) => ({
-      ...p,
-      tallas_detalle: p.tallas_detalle ? JSON.parse(p.tallas_detalle) : []
+    `).all().map((t) => ({
+      ...t,
+      tallas_detalle: t.tallas_detalle ? JSON.parse(t.tallas_detalle) : []
     }));
-  } catch (error) {
-    console.error("Error al obtener productos:", error);
-    return [];
+  } catch (c) {
+    return console.error("Error al obtener productos:", c), [];
   }
 });
-ipcMain.handle("actualizar-stock", (_event, datos) => {
-  const { folio_producto, nuevo_stock, talla, motivo, responsable } = datos;
-  if (!talla) {
+l.handle("actualizar-stock", (c, a) => {
+  const { folio_producto: t, nuevo_stock: o, talla: n, motivo: i, responsable: r } = a;
+  if (!n)
     throw new Error("Es necesario especificar la talla para ajustar el stock.");
-  }
-  const actualizar = db.transaction(() => {
-    const tallaActual = db.prepare("SELECT cantidad FROM tallas_producto WHERE folio_producto = ? AND talla = ?").get(folio_producto, talla);
-    const stockAnterior = tallaActual ? tallaActual.cantidad : 0;
-    const diferencia = nuevo_stock - stockAnterior;
-    if (diferencia === 0) return;
-    const stmtTalla = db.prepare(`
+  const s = e.transaction(() => {
+    const d = e.prepare("SELECT cantidad FROM tallas_producto WHERE folio_producto = ? AND talla = ?").get(t, n), p = d ? d.cantidad : 0, _ = o - p;
+    if (_ === 0) return;
+    e.prepare(`
       INSERT INTO tallas_producto (folio_producto, talla, cantidad, fecha_actualizacion)
       VALUES (@folio, @talla, @cantidad, CURRENT_TIMESTAMP)
       ON CONFLICT(folio_producto, talla) DO UPDATE SET
         cantidad = @cantidad,
         fecha_actualizacion = CURRENT_TIMESTAMP
-    `);
-    stmtTalla.run({
-      folio: folio_producto,
-      talla,
-      cantidad: nuevo_stock
-    });
-    const stmtProducto = db.prepare(`
+    `).run({
+      folio: t,
+      talla: n,
+      cantidad: o
+    }), e.prepare(`
       UPDATE productos 
       SET stock_actual = stock_actual + @diferencia,
           fecha_ultima_actualizacion = CURRENT_TIMESTAMP
       WHERE folio_producto = @folio
-    `);
-    stmtProducto.run({
-      diferencia,
-      folio: folio_producto
-    });
-    const stmtHistorial = db.prepare(`
+    `).run({
+      diferencia: _,
+      folio: t
+    }), e.prepare(`
       INSERT INTO entradas (
         fecha_entrada, folio_producto, cantidad_recibida, talla, 
         costo_unitario_proveedor, precio_unitario_base, 
@@ -90,92 +95,69 @@ ipcMain.handle("actualizar-stock", (_event, datos) => {
         0, 0, 
         'Ajuste Manual', @responsable, @motivo
       )
-    `);
-    stmtHistorial.run({
-      folio: folio_producto,
-      cantidad: diferencia,
+    `).run({
+      folio: t,
+      cantidad: _,
       // Puede ser negativo
-      talla,
-      responsable: responsable || "Sistema",
-      motivo: motivo || "Ajuste de inventario"
+      talla: n,
+      responsable: r || "Sistema",
+      motivo: i || "Ajuste de inventario"
     });
   });
   try {
-    actualizar();
-    return { success: true };
-  } catch (error) {
-    console.error("Error al actualizar stock:", error);
-    throw error;
+    return s(), { success: !0 };
+  } catch (d) {
+    throw console.error("Error al actualizar stock:", d), d;
   }
 });
-ipcMain.handle("get-proveedores", () => {
+l.handle("get-proveedores", () => {
   try {
-    const stmt = db.prepare("SELECT nombre FROM proveedores ORDER BY nombre");
-    return stmt.all().map((p) => p.nombre);
-  } catch (error) {
-    console.error("Error al obtener proveedores:", error);
-    return [];
+    return e.prepare("SELECT nombre FROM proveedores ORDER BY nombre").all().map((a) => a.nombre);
+  } catch (c) {
+    return console.error("Error al obtener proveedores:", c), [];
   }
 });
-ipcMain.handle("agregar-proveedor", (_event, nombre) => {
+l.handle("agregar-proveedor", (c, a) => {
   try {
-    const nombreMayusculas = nombre.trim().toUpperCase();
-    const stmt = db.prepare("INSERT INTO proveedores (nombre) VALUES (?)");
-    stmt.run(nombreMayusculas);
-    return { success: true };
-  } catch (error) {
-    if (error.code === "SQLITE_CONSTRAINT_PRIMARYKEY") {
-      throw new Error("Este proveedor ya existe.");
-    }
-    throw error;
+    const t = a.trim().toUpperCase();
+    return e.prepare("INSERT INTO proveedores (nombre) VALUES (?)").run(t), { success: !0 };
+  } catch (t) {
+    throw t.code === "SQLITE_CONSTRAINT_PRIMARYKEY" ? new Error("Este proveedor ya existe.") : t;
   }
 });
-ipcMain.handle("eliminar-proveedor", (_event, nombre) => {
+l.handle("eliminar-proveedor", (c, a) => {
   try {
-    const stmt = db.prepare("DELETE FROM proveedores WHERE nombre = ?");
-    stmt.run(nombre);
-    return { success: true };
-  } catch (error) {
-    console.error("Error al eliminar proveedor:", error);
-    throw error;
+    return e.prepare("DELETE FROM proveedores WHERE nombre = ?").run(a), { success: !0 };
+  } catch (t) {
+    throw console.error("Error al eliminar proveedor:", t), t;
   }
 });
-ipcMain.handle("get-responsables", () => {
+l.handle("get-responsables", () => {
   try {
-    const stmt = db.prepare("SELECT id_responsable, nombre FROM responsables WHERE activo = 1 ORDER BY nombre");
-    return stmt.all();
-  } catch (error) {
-    console.error("Error al obtener responsables:", error);
-    return [];
+    return e.prepare("SELECT id_responsable, nombre FROM responsables WHERE activo = 1 ORDER BY nombre").all();
+  } catch (c) {
+    return console.error("Error al obtener responsables:", c), [];
   }
 });
-ipcMain.handle("agregar-responsable", (_event, nombre) => {
+l.handle("agregar-responsable", (c, a) => {
   try {
-    const nombreTrim = nombre.trim();
-    if (!nombreTrim) throw new Error("El nombre no puede estar vacío");
-    const stmt = db.prepare("INSERT INTO responsables (nombre) VALUES (?)");
-    const result = stmt.run(nombreTrim);
-    return { success: true, id: result.lastInsertRowid };
-  } catch (error) {
-    if (error.code === "SQLITE_CONSTRAINT_UNIQUE") {
-      throw new Error("Este responsable ya existe.");
-    }
-    throw error;
+    const t = a.trim();
+    if (!t) throw new Error("El nombre no puede estar vacío");
+    return { success: !0, id: e.prepare("INSERT INTO responsables (nombre) VALUES (?)").run(t).lastInsertRowid };
+  } catch (t) {
+    throw t.code === "SQLITE_CONSTRAINT_UNIQUE" ? new Error("Este responsable ya existe.") : t;
   }
 });
-ipcMain.handle("eliminar-responsable", (_event, id) => {
+l.handle("eliminar-responsable", (c, a) => {
   try {
-    const stmt = db.prepare("UPDATE responsables SET activo = 0 WHERE id_responsable = ?");
-    stmt.run(id);
-    return { success: true };
-  } catch (error) {
-    console.error("Error al eliminar responsable:", error);
-    throw error;
+    return e.prepare("UPDATE responsables SET activo = 0 WHERE id_responsable = ?").run(a), { success: !0 };
+  } catch (t) {
+    throw console.error("Error al eliminar responsable:", t), t;
   }
 });
-ipcMain.handle("get-historial-entradas", (_event, folio) => {
+l.handle("get-historial-entradas", (c, a) => {
   try {
-    const stmt = db.prepare(`
+    return e.prepare(`
       SELECT 
         id_entrada,
         fecha_entrada,
@@ -190,16 +172,14 @@ ipcMain.handle("get-historial-entradas", (_event, folio) => {
       FROM entradas
       WHERE folio_producto = ?
       ORDER BY fecha_entrada DESC, id_entrada DESC
-    `);
-    return stmt.all(folio);
-  } catch (error) {
-    console.error("Error al obtener historial de entradas:", error);
-    return [];
+    `).all(a);
+  } catch (t) {
+    return console.error("Error al obtener historial de entradas:", t), [];
   }
 });
-ipcMain.handle("get-historial-ventas", (_event, folio) => {
+l.handle("get-historial-ventas", (c, a) => {
   try {
-    const ventas = db.prepare(`
+    return e.prepare(`
       SELECT 
         v.id_venta,
         v.fecha_venta,
@@ -216,45 +196,41 @@ ipcMain.handle("get-historial-ventas", (_event, folio) => {
       LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
       WHERE v.folio_producto = ?
       ORDER BY v.fecha_venta DESC, v.id_venta DESC
-    `).all(folio);
-    return ventas.map((venta) => {
-      let montoVendido = 0;
-      const montoTotal = venta.precio_unitario_real * venta.cantidad_vendida - (venta.descuento_aplicado || 0);
-      if (venta.tipo_salida === "Venta" || venta.tipo_salida === "Prestado") {
-        montoVendido = montoTotal;
-      } else if (venta.tipo_salida === "Crédito" || venta.tipo_salida === "Apartado") {
-        if (venta.id_cliente) {
-          const abonos = db.prepare(`
+    `).all(a).map((o) => {
+      let n = 0;
+      const i = o.precio_unitario_real * o.cantidad_vendida - (o.descuento_aplicado || 0);
+      if (o.tipo_salida === "Venta" || o.tipo_salida === "Prestado")
+        n = i;
+      else if (o.tipo_salida === "Crédito" || o.tipo_salida === "Apartado")
+        if (o.id_cliente) {
+          const r = e.prepare(`
             SELECT COALESCE(SUM(monto), 0) as total_abonado
             FROM movimientos_cliente
             WHERE id_cliente = ?
               AND tipo_movimiento = 'abono'
               AND (referencia LIKE ? OR referencia LIKE ?)
           `).get(
-            venta.id_cliente,
-            `%Venta #${venta.id_venta}%`,
-            `Abono inicial - Venta #${venta.id_venta}%`
+            o.id_cliente,
+            `%Venta #${o.id_venta}%`,
+            `Abono inicial - Venta #${o.id_venta}%`
           );
-          montoVendido = (abonos == null ? void 0 : abonos.total_abonado) || 0;
-        } else {
-          montoVendido = 0;
-        }
-      }
+          n = (r == null ? void 0 : r.total_abonado) || 0;
+        } else
+          n = 0;
       return {
-        ...venta,
-        monto_total: montoTotal,
-        monto_vendido: montoVendido,
-        saldo_pendiente: montoTotal - montoVendido
+        ...o,
+        monto_total: i,
+        monto_vendido: n,
+        saldo_pendiente: i - n
       };
     });
-  } catch (error) {
-    console.error("Error al obtener historial de ventas:", error);
-    return [];
+  } catch (t) {
+    return console.error("Error al obtener historial de ventas:", t), [];
   }
 });
-ipcMain.handle("get-historial-movimientos", (_event, folio) => {
+l.handle("get-historial-movimientos", (c, a) => {
   try {
-    const entradas = db.prepare(`
+    const t = e.prepare(`
       SELECT 
         'entrada' as tipo,
         id_entrada as id,
@@ -268,8 +244,7 @@ ipcMain.handle("get-historial-movimientos", (_event, folio) => {
         NULL as cliente
       FROM entradas
       WHERE folio_producto = ?
-    `).all(folio);
-    const ventasRaw = db.prepare(`
+    `).all(a), n = e.prepare(`
       SELECT 
         'venta' as tipo,
         v.id_venta as id,
@@ -286,52 +261,45 @@ ipcMain.handle("get-historial-movimientos", (_event, folio) => {
       FROM ventas v
       LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
       WHERE v.folio_producto = ?
-    `).all(folio);
-    const ventas = ventasRaw.map((venta) => {
-      let montoVendido = 0;
-      const montoTotal = venta.precio_unitario_real * venta.cantidad - (venta.descuento_aplicado || 0);
-      if (venta.tipo_movimiento === "Venta" || venta.tipo_movimiento === "Prestado") {
-        montoVendido = montoTotal;
-      } else if (venta.tipo_movimiento === "Crédito" || venta.tipo_movimiento === "Apartado") {
-        if (venta.id_cliente) {
-          const abonos = db.prepare(`
+    `).all(a).map((r) => {
+      let s = 0;
+      const d = r.precio_unitario_real * r.cantidad - (r.descuento_aplicado || 0);
+      if (r.tipo_movimiento === "Venta" || r.tipo_movimiento === "Prestado")
+        s = d;
+      else if (r.tipo_movimiento === "Crédito" || r.tipo_movimiento === "Apartado")
+        if (r.id_cliente) {
+          const p = e.prepare(`
             SELECT COALESCE(SUM(monto), 0) as total_abonado
             FROM movimientos_cliente
             WHERE id_cliente = ?
               AND tipo_movimiento = 'abono'
               AND (referencia LIKE ? OR referencia LIKE ?)
           `).get(
-            venta.id_cliente,
-            `%Venta #${venta.id}%`,
-            `Abono inicial - Venta #${venta.id}%`
+            r.id_cliente,
+            `%Venta #${r.id}%`,
+            `Abono inicial - Venta #${r.id}%`
           );
-          montoVendido = (abonos == null ? void 0 : abonos.total_abonado) || 0;
-        } else {
-          montoVendido = 0;
-        }
-      }
+          s = (p == null ? void 0 : p.total_abonado) || 0;
+        } else
+          s = 0;
       return {
-        ...venta,
-        precio_unitario: venta.precio_unitario_real,
-        monto_vendido: montoVendido,
-        saldo_pendiente: montoTotal - montoVendido
+        ...r,
+        precio_unitario: r.precio_unitario_real,
+        monto_vendido: s,
+        saldo_pendiente: d - s
       };
     });
-    const movimientos = [...entradas, ...ventas].sort((a, b) => {
-      const fechaA = new Date(a.fecha).getTime();
-      const fechaB = new Date(b.fecha).getTime();
-      if (fechaB !== fechaA) return fechaB - fechaA;
-      return b.id - a.id;
+    return [...t, ...n].sort((r, s) => {
+      const d = new Date(r.fecha).getTime(), p = new Date(s.fecha).getTime();
+      return p !== d ? p - d : s.id - r.id;
     });
-    return movimientos;
-  } catch (error) {
-    console.error("Error al obtener historial de movimientos:", error);
-    return [];
+  } catch (t) {
+    return console.error("Error al obtener historial de movimientos:", t), [];
   }
 });
-ipcMain.handle("get-producto-detalle", (_event, folio) => {
+l.handle("get-producto-detalle", (c, a) => {
   try {
-    const stmt = db.prepare(`
+    const o = e.prepare(`
       SELECT 
         p.*, 
         json_group_array(json_object('talla', tp.talla, 'cantidad', tp.cantidad)) as tallas_detalle
@@ -339,63 +307,52 @@ ipcMain.handle("get-producto-detalle", (_event, folio) => {
       LEFT JOIN tallas_producto tp ON p.folio_producto = tp.folio_producto
       WHERE p.folio_producto = ?
       GROUP BY p.folio_producto
-    `);
-    const producto = stmt.get(folio);
-    if (!producto) return null;
-    return {
-      ...producto,
-      tallas_detalle: producto.tallas_detalle ? JSON.parse(producto.tallas_detalle) : []
-    };
-  } catch (error) {
-    console.error("Error al buscar producto:", error);
-    return null;
+    `).get(a);
+    return o ? {
+      ...o,
+      tallas_detalle: o.tallas_detalle ? JSON.parse(o.tallas_detalle) : []
+    } : null;
+  } catch (t) {
+    return console.error("Error al buscar producto:", t), null;
   }
 });
-ipcMain.handle("get-ultima-entrada", (_event, folio) => {
+l.handle("get-ultima-entrada", (c, a) => {
   try {
-    const entrada = db.prepare(`
+    return e.prepare(`
       SELECT costo_unitario_proveedor, precio_unitario_base
       FROM entradas
       WHERE folio_producto = ?
       ORDER BY fecha_entrada DESC, id_entrada DESC
       LIMIT 1
-    `).get(folio);
-    return entrada || null;
-  } catch (error) {
-    console.error("Error al obtener última entrada:", error);
-    return null;
+    `).get(a) || null;
+  } catch (t) {
+    return console.error("Error al obtener última entrada:", t), null;
   }
 });
-ipcMain.handle("get-precio-venta", (_event, datos) => {
-  const { folio_producto, talla } = datos;
+l.handle("get-precio-venta", (c, a) => {
+  const { folio_producto: t, talla: o } = a;
   try {
-    const entradaTalla = db.prepare(`
+    const n = e.prepare(`
       SELECT precio_unitario_base
       FROM entradas
       WHERE folio_producto = ? AND talla = ?
       ORDER BY fecha_entrada DESC, id_entrada DESC
       LIMIT 1
-    `).get(folio_producto, talla);
-    if (entradaTalla) {
-      return { precio_unitario_base: entradaTalla.precio_unitario_base };
-    }
-    const entradaGeneral = db.prepare(`
+    `).get(t, o);
+    return n ? { precio_unitario_base: n.precio_unitario_base } : e.prepare(`
       SELECT precio_unitario_base
       FROM entradas
       WHERE folio_producto = ?
       ORDER BY fecha_entrada DESC, id_entrada DESC
       LIMIT 1
-    `).get(folio_producto);
-    return entradaGeneral || { precio_unitario_base: 0 };
-  } catch (error) {
-    console.error("Error al obtener precio de venta:", error);
-    return { precio_unitario_base: 0 };
+    `).get(t) || { precio_unitario_base: 0 };
+  } catch (n) {
+    return console.error("Error al obtener precio de venta:", n), { precio_unitario_base: 0 };
   }
 });
-ipcMain.handle("registrar-nuevo-producto", (_event, datos) => {
-  const { producto, entrada } = datos;
-  const registrar = db.transaction(() => {
-    const stmtProducto = db.prepare(`
+l.handle("registrar-nuevo-producto", (c, a) => {
+  const { producto: t, entrada: o } = a, n = e.transaction(() => {
+    e.prepare(`
       INSERT INTO productos (
         folio_producto, nombre_producto, categoria, genero_destino,
         stock_actual, stock_minimo, proveedor, observaciones
@@ -403,12 +360,10 @@ ipcMain.handle("registrar-nuevo-producto", (_event, datos) => {
         @folio_producto, @nombre_producto, @categoria, @genero_destino,
         @stock_actual, 5, @proveedor, @observaciones
       )
-    `);
-    stmtProducto.run({
-      ...producto,
-      stock_actual: entrada.cantidad_recibida
-    });
-    const stmtEntrada = db.prepare(`
+    `).run({
+      ...t,
+      stock_actual: o.cantidad_recibida
+    }), e.prepare(`
       INSERT INTO entradas (
         fecha_entrada, folio_producto, cantidad_recibida, talla, costo_unitario_proveedor,
         precio_unitario_base, precio_unitario_promocion, tipo_movimiento,
@@ -418,41 +373,31 @@ ipcMain.handle("registrar-nuevo-producto", (_event, datos) => {
         @precio_unitario_base, @precio_unitario_promocion, @tipo_movimiento,
         @responsable_recepcion, @observaciones_entrada
       )
-    `);
-    stmtEntrada.run({
-      ...entrada,
-      folio_producto: producto.folio_producto,
+    `).run({
+      ...o,
+      folio_producto: t.folio_producto,
       // Asegurar foreign key
       tipo_movimiento: "Entrada Inicial"
-    });
-    const stmtTalla = db.prepare(`
+    }), e.prepare(`
       INSERT INTO tallas_producto (folio_producto, talla, cantidad)
       VALUES (@folio, @talla, @cantidad)
-    `);
-    stmtTalla.run({
-      folio: producto.folio_producto,
-      talla: entrada.talla,
-      cantidad: entrada.cantidad_recibida
+    `).run({
+      folio: t.folio_producto,
+      talla: o.talla,
+      cantidad: o.cantidad_recibida
     });
   });
   try {
-    registrar();
-    return { success: true };
-  } catch (error) {
-    console.error("Error al registrar nuevo producto:", error);
-    if (error.code === "SQLITE_CONSTRAINT_PRIMARYKEY") {
-      throw new Error("El folio del producto ya existe.");
-    }
-    throw error;
+    return n(), { success: !0 };
+  } catch (i) {
+    throw console.error("Error al registrar nuevo producto:", i), i.code === "SQLITE_CONSTRAINT_PRIMARYKEY" ? new Error("El folio del producto ya existe.") : i;
   }
 });
-ipcMain.handle("registrar-entrada-existente", (_event, entrada) => {
-  const registrar = db.transaction(() => {
-    const producto = db.prepare("SELECT stock_actual FROM productos WHERE folio_producto = ?").get(entrada.folio_producto);
-    if (!producto) {
+l.handle("registrar-entrada-existente", (c, a) => {
+  const t = e.transaction(() => {
+    if (!e.prepare("SELECT stock_actual FROM productos WHERE folio_producto = ?").get(a.folio_producto))
       throw new Error("El producto no existe.");
-    }
-    const stmtEntrada = db.prepare(`
+    e.prepare(`
       INSERT INTO entradas (
         fecha_entrada, folio_producto, cantidad_recibida, talla, costo_unitario_proveedor,
         precio_unitario_base, precio_unitario_promocion, tipo_movimiento,
@@ -462,104 +407,84 @@ ipcMain.handle("registrar-entrada-existente", (_event, entrada) => {
         @precio_unitario_base, @precio_unitario_promocion, @tipo_movimiento,
         @responsable_recepcion, @observaciones_entrada
       )
-    `);
-    stmtEntrada.run({
-      ...entrada,
+    `).run({
+      ...a,
       tipo_movimiento: "Reabastecimiento"
-    });
-    const stmtUpdate = db.prepare(`
+    }), e.prepare(`
       UPDATE productos 
       SET stock_actual = stock_actual + @cantidad,
           fecha_ultima_actualizacion = CURRENT_TIMESTAMP
       WHERE folio_producto = @folio
-    `);
-    stmtUpdate.run({
-      cantidad: entrada.cantidad_recibida,
-      folio: entrada.folio_producto
-    });
-    const stmtTalla = db.prepare(`
+    `).run({
+      cantidad: a.cantidad_recibida,
+      folio: a.folio_producto
+    }), e.prepare(`
       INSERT INTO tallas_producto (folio_producto, talla, cantidad)
       VALUES (@folio, @talla, @cantidad)
       ON CONFLICT(folio_producto, talla) DO UPDATE SET
         cantidad = cantidad + @cantidad,
         fecha_actualizacion = CURRENT_TIMESTAMP
-    `);
-    stmtTalla.run({
-      folio: entrada.folio_producto,
-      talla: entrada.talla,
-      cantidad: entrada.cantidad_recibida
+    `).run({
+      folio: a.folio_producto,
+      talla: a.talla,
+      cantidad: a.cantidad_recibida
     });
   });
   try {
-    registrar();
-    return { success: true };
-  } catch (error) {
-    console.error("Error al registrar entrada:", error);
-    throw error;
+    return t(), { success: !0 };
+  } catch (o) {
+    throw console.error("Error al registrar entrada:", o), o;
   }
 });
-ipcMain.handle("eliminar-entrada", (_event, id_entrada) => {
-  const eliminar = db.transaction(() => {
-    const entrada = db.prepare(`
+l.handle("eliminar-entrada", (c, a) => {
+  const t = e.transaction(() => {
+    const o = e.prepare(`
       SELECT folio_producto, cantidad_recibida, talla, tipo_movimiento
       FROM entradas
       WHERE id_entrada = ?
-    `).get(id_entrada);
-    if (!entrada) {
+    `).get(a);
+    if (!o)
       throw new Error("Entrada no encontrada.");
-    }
-    if (entrada.tipo_movimiento === "Entrada Inicial") {
-      const countEntradas = db.prepare(`
+    if (o.tipo_movimiento === "Entrada Inicial" && e.prepare(`
         SELECT COUNT(*) as total FROM entradas WHERE folio_producto = ?
-      `).get(entrada.folio_producto);
-      if (countEntradas.total === 1) {
-        throw new Error("No se puede eliminar la entrada inicial del producto. Elimine el producto completo desde Inventario.");
-      }
-    }
-    const stmtUpdateStock = db.prepare(`
+      `).get(o.folio_producto).total === 1)
+      throw new Error("No se puede eliminar la entrada inicial del producto. Elimine el producto completo desde Inventario.");
+    e.prepare(`
       UPDATE productos 
       SET stock_actual = stock_actual - @cantidad,
           fecha_ultima_actualizacion = CURRENT_TIMESTAMP
       WHERE folio_producto = @folio
-    `);
-    stmtUpdateStock.run({
-      cantidad: entrada.cantidad_recibida,
-      folio: entrada.folio_producto
-    });
-    const stmtUpdateTalla = db.prepare(`
+    `).run({
+      cantidad: o.cantidad_recibida,
+      folio: o.folio_producto
+    }), e.prepare(`
       UPDATE tallas_producto
       SET cantidad = cantidad - @cantidad,
           fecha_actualizacion = CURRENT_TIMESTAMP
       WHERE folio_producto = @folio AND talla = @talla
-    `);
-    stmtUpdateTalla.run({
-      cantidad: entrada.cantidad_recibida,
-      folio: entrada.folio_producto,
-      talla: entrada.talla
+    `).run({
+      cantidad: o.cantidad_recibida,
+      folio: o.folio_producto,
+      talla: o.talla
     });
-    const tallaActual = db.prepare(`
+    const r = e.prepare(`
       SELECT cantidad FROM tallas_producto 
       WHERE folio_producto = ? AND talla = ?
-    `).get(entrada.folio_producto, entrada.talla);
-    if (tallaActual && tallaActual.cantidad <= 0) {
-      db.prepare(`
+    `).get(o.folio_producto, o.talla);
+    r && r.cantidad <= 0 && e.prepare(`
         DELETE FROM tallas_producto 
         WHERE folio_producto = ? AND talla = ?
-      `).run(entrada.folio_producto, entrada.talla);
-    }
-    db.prepare("DELETE FROM entradas WHERE id_entrada = ?").run(id_entrada);
+      `).run(o.folio_producto, o.talla), e.prepare("DELETE FROM entradas WHERE id_entrada = ?").run(a);
   });
   try {
-    eliminar();
-    return { success: true };
-  } catch (error) {
-    console.error("Error al eliminar entrada:", error);
-    throw error;
+    return t(), { success: !0 };
+  } catch (o) {
+    throw console.error("Error al eliminar entrada:", o), o;
   }
 });
-ipcMain.handle("get-clientes", () => {
+l.handle("get-clientes", () => {
   try {
-    const stmt = db.prepare(`
+    return e.prepare(`
       SELECT 
         id_cliente,
         nombre_completo,
@@ -568,71 +493,58 @@ ipcMain.handle("get-clientes", () => {
         estado_cuenta
       FROM clientes
       ORDER BY nombre_completo ASC
-    `);
-    return stmt.all();
-  } catch (error) {
-    console.error("Error al obtener clientes:", error);
-    return [];
+    `).all();
+  } catch (c) {
+    return console.error("Error al obtener clientes:", c), [];
   }
 });
-ipcMain.handle("agregar-cliente", (_event, datos) => {
-  const { nombre_completo, telefono, saldo_pendiente } = datos;
-  const agregar = db.transaction(() => {
-    const stmt = db.prepare(`
+l.handle("agregar-cliente", (c, a) => {
+  const { nombre_completo: t, telefono: o, saldo_pendiente: n } = a, i = e.transaction(() => {
+    const s = e.prepare(`
       INSERT INTO clientes (nombre_completo, telefono, saldo_pendiente, estado_cuenta)
       VALUES (@nombre_completo, @telefono, @saldo_pendiente, 
               CASE WHEN @saldo_pendiente > 0 THEN 'Con saldo' ELSE 'Al corriente' END)
-    `);
-    const resultado = stmt.run({
-      nombre_completo: nombre_completo.trim(),
-      telefono: telefono || null,
-      saldo_pendiente: saldo_pendiente || 0
+    `).run({
+      nombre_completo: t.trim(),
+      telefono: o || null,
+      saldo_pendiente: n || 0
     });
-    if (saldo_pendiente && saldo_pendiente > 0) {
-      const idCliente = Number(resultado.lastInsertRowid);
-      db.prepare(`
+    if (n && n > 0) {
+      const d = Number(s.lastInsertRowid);
+      e.prepare(`
         INSERT INTO movimientos_cliente (id_cliente, fecha, tipo_movimiento, monto, referencia, responsable)
         VALUES (@id_cliente, CURRENT_TIMESTAMP, 'cargo', @monto, 'Saldo inicial', 'Sistema')
       `).run({
-        id_cliente: idCliente,
-        monto: saldo_pendiente
+        id_cliente: d,
+        monto: n
       });
     }
   });
   try {
-    agregar();
-    return { success: true };
-  } catch (error) {
-    console.error("Error al agregar cliente:", error);
-    if (error.code === "SQLITE_CONSTRAINT") {
-      throw new Error("Ya existe un cliente con ese nombre.");
-    }
-    throw error;
+    return i(), { success: !0 };
+  } catch (r) {
+    throw console.error("Error al agregar cliente:", r), r.code === "SQLITE_CONSTRAINT" ? new Error("Ya existe un cliente con ese nombre.") : r;
   }
 });
-ipcMain.handle("eliminar-cliente", (_event, id_cliente) => {
+l.handle("eliminar-cliente", (c, a) => {
   try {
-    const cliente = db.prepare("SELECT saldo_pendiente FROM clientes WHERE id_cliente = ?").get(id_cliente);
-    if (!cliente) {
+    const t = e.prepare("SELECT saldo_pendiente FROM clientes WHERE id_cliente = ?").get(a);
+    if (!t)
       throw new Error("Cliente no encontrado.");
-    }
-    if (cliente.saldo_pendiente > 0) {
+    if (t.saldo_pendiente > 0)
       throw new Error("No se puede eliminar un cliente con saldo pendiente.");
-    }
-    db.prepare("DELETE FROM clientes WHERE id_cliente = ?").run(id_cliente);
-    return { success: true };
-  } catch (error) {
-    console.error("Error al eliminar cliente:", error);
-    throw error;
+    return e.prepare("DELETE FROM clientes WHERE id_cliente = ?").run(a), { success: !0 };
+  } catch (t) {
+    throw console.error("Error al eliminar cliente:", t), t;
   }
 });
-ipcMain.handle("get-historial-cliente", (_event, id_cliente) => {
+l.handle("get-historial-cliente", (c, a) => {
   try {
-    const cliente = db.prepare("SELECT saldo_pendiente FROM clientes WHERE id_cliente = ?").get(id_cliente);
-    if (!cliente) {
+    const t = e.prepare("SELECT saldo_pendiente FROM clientes WHERE id_cliente = ?").get(a);
+    if (!t)
       throw new Error("Cliente no encontrado.");
-    }
-    const stmt = db.prepare(`
+    return {
+      movimientos: e.prepare(`
       SELECT 
         id_movimiento,
         fecha,
@@ -643,20 +555,16 @@ ipcMain.handle("get-historial-cliente", (_event, id_cliente) => {
       FROM movimientos_cliente
       WHERE id_cliente = ?
       ORDER BY fecha DESC, id_movimiento DESC
-    `);
-    const movimientos = stmt.all(id_cliente);
-    return {
-      movimientos,
-      saldoActual: cliente.saldo_pendiente
+    `).all(a),
+      saldoActual: t.saldo_pendiente
     };
-  } catch (error) {
-    console.error("Error al obtener historial del cliente:", error);
-    throw error;
+  } catch (t) {
+    throw console.error("Error al obtener historial del cliente:", t), t;
   }
 });
-ipcMain.handle("get-productos-pendientes-cliente", (_event, id_cliente) => {
+l.handle("get-productos-pendientes-cliente", (c, a) => {
   try {
-    const ventas = db.prepare(`
+    return e.prepare(`
       SELECT DISTINCT
         v.id_venta,
         v.fecha_venta,
@@ -675,78 +583,65 @@ ipcMain.handle("get-productos-pendientes-cliente", (_event, id_cliente) => {
       WHERE v.id_cliente = ? 
         AND v.tipo_salida IN ('Crédito', 'Apartado', 'Prestado')
       ORDER BY v.fecha_venta DESC
-    `).all(id_cliente);
-    return ventas.map((venta) => {
-      let montoAbonado = 0;
-      const montoTotal = venta.monto_total;
-      const abonos = db.prepare(`
+    `).all(a).map((o) => {
+      let n = 0;
+      const i = o.monto_total, r = e.prepare(`
           SELECT COALESCE(SUM(monto), 0) as total_abonado
           FROM movimientos_cliente
           WHERE id_cliente = ?
             AND tipo_movimiento = 'abono'
             AND (referencia LIKE ? OR referencia LIKE ?)
         `).get(
-        id_cliente,
-        `%Venta #${venta.id_venta}%`,
-        `Abono inicial - Venta #${venta.id_venta}%`
+        a,
+        `%Venta #${o.id_venta}%`,
+        `Abono inicial - Venta #${o.id_venta}%`
       );
-      montoAbonado = (abonos == null ? void 0 : abonos.total_abonado) || 0;
-      const montoFaltante = montoTotal - montoAbonado;
+      n = (r == null ? void 0 : r.total_abonado) || 0;
+      const s = i - n;
       return {
-        ...venta,
-        monto_abonado: montoAbonado,
-        monto_faltante: montoFaltante
+        ...o,
+        monto_abonado: n,
+        monto_faltante: s
       };
-    }).filter((venta) => venta.monto_faltante > 0);
-  } catch (error) {
-    console.error("Error al obtener productos pendientes:", error);
-    return [];
+    }).filter((o) => o.monto_faltante > 0);
+  } catch (t) {
+    return console.error("Error al obtener productos pendientes:", t), [];
   }
 });
-ipcMain.handle("registrar-abono-cliente", (_event, datos) => {
-  const { id_cliente, monto, id_venta, responsable, notas } = datos;
-  const procesar = db.transaction(() => {
-    const cliente = db.prepare("SELECT saldo_pendiente FROM clientes WHERE id_cliente = ?").get(id_cliente);
-    if (!cliente) {
+l.handle("registrar-abono-cliente", (c, a) => {
+  const { id_cliente: t, monto: o, id_venta: n, responsable: i, notas: r } = a, s = e.transaction(() => {
+    const d = e.prepare("SELECT saldo_pendiente FROM clientes WHERE id_cliente = ?").get(t);
+    if (!d)
       throw new Error("Cliente no encontrado.");
-    }
-    if (monto <= 0) {
+    if (o <= 0)
       throw new Error("El monto del abono debe ser mayor a 0.");
-    }
-    if (id_venta) {
-      const venta = db.prepare(`
+    if (n) {
+      const u = e.prepare(`
         SELECT 
           (v.precio_unitario_real * v.cantidad_vendida - COALESCE(v.descuento_aplicado, 0)) as monto_total
         FROM ventas v
         WHERE v.id_venta = ? AND v.id_cliente = ?
-      `).get(id_venta, id_cliente);
-      if (venta) {
-        const abonosVenta = db.prepare(`
+      `).get(n, t);
+      if (u) {
+        const E = e.prepare(`
           SELECT COALESCE(SUM(monto), 0) as total_abonado
           FROM movimientos_cliente
           WHERE id_cliente = ?
             AND tipo_movimiento = 'abono'
             AND (referencia LIKE ? OR referencia LIKE ?)
         `).get(
-          id_cliente,
-          `%Venta #${id_venta}%`,
-          `Abono inicial - Venta #${id_venta}%`
-        );
-        const totalAbonado = (abonosVenta == null ? void 0 : abonosVenta.total_abonado) || 0;
-        const montoFaltante = venta.monto_total - totalAbonado;
-        if (monto > montoFaltante) {
-          throw new Error(`El abono ($${monto.toFixed(2)}) no puede ser mayor al monto faltante de este producto ($${montoFaltante.toFixed(2)}).`);
-        }
-      } else {
+          t,
+          `%Venta #${n}%`,
+          `Abono inicial - Venta #${n}%`
+        ), m = (E == null ? void 0 : E.total_abonado) || 0, f = u.monto_total - m;
+        if (o > f)
+          throw new Error(`El abono ($${o.toFixed(2)}) no puede ser mayor al monto faltante de este producto ($${f.toFixed(2)}).`);
+      } else
         throw new Error("Venta no encontrada.");
-      }
-    } else {
-      if (monto > cliente.saldo_pendiente) {
-        throw new Error(`El abono no puede ser mayor al saldo pendiente ($${cliente.saldo_pendiente.toFixed(2)}).`);
-      }
-    }
-    const nuevoSaldo = cliente.saldo_pendiente - monto;
-    db.prepare(`
+    } else if (o > d.saldo_pendiente)
+      throw new Error(`El abono no puede ser mayor al saldo pendiente ($${d.saldo_pendiente.toFixed(2)}).`);
+    const p = d.saldo_pendiente - o;
+    e.prepare(`
       UPDATE clientes 
       SET saldo_pendiente = @nuevo_saldo,
           fecha_ultimo_pago = CURRENT_TIMESTAMP,
@@ -756,29 +651,29 @@ ipcMain.handle("registrar-abono-cliente", (_event, datos) => {
           END
       WHERE id_cliente = @id_cliente
     `).run({
-      nuevo_saldo: nuevoSaldo,
-      id_cliente
+      nuevo_saldo: p,
+      id_cliente: t
     });
-    const referencia = id_venta ? `Abono - Venta #${id_venta}${notas ? ` - ${notas}` : ""}` : `Abono general${notas ? ` - ${notas}` : ""}`;
-    db.prepare(`
+    const _ = n ? `Abono - Venta #${n}${r ? ` - ${r}` : ""}` : `Abono general${r ? ` - ${r}` : ""}`;
+    e.prepare(`
       INSERT INTO movimientos_cliente (id_cliente, fecha, tipo_movimiento, monto, referencia, responsable)
       VALUES (@id_cliente, CURRENT_TIMESTAMP, 'abono', @monto, @referencia, @responsable)
     `).run({
-      id_cliente,
-      monto,
-      referencia,
-      responsable: responsable || null
+      id_cliente: t,
+      monto: o,
+      referencia: _,
+      responsable: i || null
     });
-    const ventasAVerificar = id_venta ? [id_venta] : db.prepare(`
+    const v = n ? [n] : e.prepare(`
           SELECT DISTINCT v.id_venta
           FROM ventas v
           INNER JOIN productos p ON v.folio_producto = p.folio_producto
           WHERE v.id_cliente = ?
             AND v.tipo_salida IN ('Crédito', 'Apartado', 'Prestado')
             AND p.estado_producto IN ('Crédito', 'Apartado', 'Prestado')
-        `).all(id_cliente).map((v) => v.id_venta);
-    for (const ventaId of ventasAVerificar) {
-      const venta = db.prepare(`
+        `).all(t).map((u) => u.id_venta);
+    for (const u of v) {
+      const E = e.prepare(`
         SELECT 
           v.folio_producto,
           v.tipo_salida,
@@ -787,95 +682,84 @@ ipcMain.handle("registrar-abono-cliente", (_event, datos) => {
         FROM ventas v
         INNER JOIN productos p ON v.folio_producto = p.folio_producto
         WHERE v.id_venta = ? AND v.id_cliente = ?
-      `).get(ventaId, id_cliente);
-      if (venta) {
-        const abonosVenta = db.prepare(`
+      `).get(u, t);
+      if (E) {
+        const m = e.prepare(`
           SELECT COALESCE(SUM(monto), 0) as total_abonado
           FROM movimientos_cliente
           WHERE id_cliente = ? 
             AND tipo_movimiento = 'abono'
             AND (referencia LIKE ? OR referencia LIKE ?)
-        `).get(id_cliente, `%Venta #${ventaId}%`, `Abono inicial - Venta #${ventaId}%`);
-        const totalAbonado = (abonosVenta == null ? void 0 : abonosVenta.total_abonado) || 0;
-        const montoVenta = venta.monto_venta;
-        if (totalAbonado >= montoVenta && venta.estado_producto !== "Vendido" && venta.estado_producto !== "Disponible") {
-          const estadoAnterior = venta.estado_producto;
-          const estadoNuevo = venta.tipo_salida === "Prestado" ? "Disponible" : "Vendido";
-          db.prepare(`
+        `).get(t, `%Venta #${u}%`, `Abono inicial - Venta #${u}%`), f = (m == null ? void 0 : m.total_abonado) || 0, S = E.monto_venta;
+        if (f >= S && E.estado_producto !== "Vendido" && E.estado_producto !== "Disponible") {
+          const T = E.estado_producto, R = E.tipo_salida === "Prestado" ? "Disponible" : "Vendido";
+          e.prepare(`
             UPDATE productos 
             SET estado_producto = @estado_nuevo
             WHERE folio_producto = @folio
           `).run({
-            estado_nuevo: estadoNuevo,
-            folio: venta.folio_producto
-          });
-          db.prepare(`
+            estado_nuevo: R,
+            folio: E.folio_producto
+          }), e.prepare(`
             INSERT INTO estados_producto (folio_producto, fecha_cambio, estado_anterior, estado_nuevo, motivo, responsable)
             VALUES (@folio, CURRENT_TIMESTAMP, @estado_anterior, @estado_nuevo, @motivo, @responsable)
           `).run({
-            folio: venta.folio_producto,
-            estado_anterior: estadoAnterior,
-            estado_nuevo: estadoNuevo,
-            motivo: `Pago completado${notas ? ` - ${notas}` : ""}`,
-            responsable: responsable || null
+            folio: E.folio_producto,
+            estado_anterior: T,
+            estado_nuevo: R,
+            motivo: `Pago completado${r ? ` - ${r}` : ""}`,
+            responsable: i || null
           });
         }
       }
     }
-    return { success: true, nuevoSaldo };
+    return { success: !0, nuevoSaldo: p };
   });
   try {
-    return procesar();
-  } catch (error) {
-    console.error("Error al registrar abono:", error);
-    throw error;
+    return s();
+  } catch (d) {
+    throw console.error("Error al registrar abono:", d), d;
   }
 });
-ipcMain.handle("marcar-prestado-devuelto", (_event, datos) => {
-  const { id_venta, responsable, notas } = datos;
-  const procesar = db.transaction(() => {
-    const venta = db.prepare(`
+l.handle("marcar-prestado-devuelto", (c, a) => {
+  const { id_venta: t, responsable: o, notas: n } = a, i = e.transaction(() => {
+    const r = e.prepare(`
       SELECT 
         v.folio_producto,
         p.estado_producto
       FROM ventas v
       INNER JOIN productos p ON v.folio_producto = p.folio_producto
       WHERE v.id_venta = ? AND v.tipo_salida = 'Prestado'
-    `).get(id_venta);
-    if (!venta) {
+    `).get(t);
+    if (!r)
       throw new Error("Venta no encontrada o no es un producto prestado.");
-    }
-    if (venta.estado_producto !== "Prestado") {
+    if (r.estado_producto !== "Prestado")
       throw new Error("Este producto ya no está marcado como prestado.");
-    }
-    db.prepare(`
+    return e.prepare(`
       UPDATE productos 
       SET estado_producto = 'Disponible'
       WHERE folio_producto = @folio
     `).run({
-      folio: venta.folio_producto
-    });
-    db.prepare(`
+      folio: r.folio_producto
+    }), e.prepare(`
       INSERT INTO estados_producto (folio_producto, fecha_cambio, estado_anterior, estado_nuevo, motivo, responsable)
       VALUES (@folio, CURRENT_TIMESTAMP, @estadoAnterior, 'Disponible', @motivo, @responsable)
     `).run({
-      folio: venta.folio_producto,
+      folio: r.folio_producto,
       estadoAnterior: "Prestado",
-      motivo: `Producto prestado devuelto${notas ? ` - ${notas}` : ""}`,
-      responsable: responsable || null
-    });
-    return { success: true };
+      motivo: `Producto prestado devuelto${n ? ` - ${n}` : ""}`,
+      responsable: o || null
+    }), { success: !0 };
   });
   try {
-    return procesar();
-  } catch (error) {
-    console.error("Error al marcar producto como devuelto:", error);
-    throw error;
+    return i();
+  } catch (r) {
+    throw console.error("Error al marcar producto como devuelto:", r), r;
   }
 });
-ipcMain.handle("get-productos-disponibles", () => {
+l.handle("get-productos-disponibles", () => {
   try {
-    const stmt = db.prepare(`
+    return e.prepare(`
       SELECT 
         p.*, 
         json_group_array(json_object('talla', tp.talla, 'cantidad', tp.cantidad)) as tallas_detalle
@@ -885,44 +769,37 @@ ipcMain.handle("get-productos-disponibles", () => {
       GROUP BY p.folio_producto
       HAVING SUM(tp.cantidad) > 0
       ORDER BY p.fecha_ultima_actualizacion DESC
-    `);
-    const productos = stmt.all();
-    return productos.map((p) => ({
-      ...p,
-      tallas_detalle: p.tallas_detalle ? JSON.parse(p.tallas_detalle) : []
+    `).all().map((t) => ({
+      ...t,
+      tallas_detalle: t.tallas_detalle ? JSON.parse(t.tallas_detalle) : []
     }));
-  } catch (error) {
-    console.error("Error al obtener productos disponibles:", error);
-    return [];
+  } catch (c) {
+    return console.error("Error al obtener productos disponibles:", c), [];
   }
 });
-ipcMain.handle("registrar-venta", (_event, datos) => {
+l.handle("registrar-venta", (c, a) => {
   const {
-    fecha_venta,
-    folio_producto,
-    cantidad_vendida,
-    talla,
-    precio_unitario_real,
-    descuento_aplicado,
-    tipo_salida,
-    id_cliente,
-    abono_inicial,
-    responsable_caja,
-    notas
-  } = datos;
-  const registrar = db.transaction(() => {
-    const producto = db.prepare("SELECT stock_actual FROM productos WHERE folio_producto = ?").get(folio_producto);
-    if (!producto) {
+    fecha_venta: t,
+    folio_producto: o,
+    cantidad_vendida: n,
+    talla: i,
+    precio_unitario_real: r,
+    descuento_aplicado: s,
+    tipo_salida: d,
+    id_cliente: p,
+    abono_inicial: _,
+    responsable_caja: v,
+    notas: u
+  } = a, E = e.transaction(() => {
+    if (!e.prepare("SELECT stock_actual FROM productos WHERE folio_producto = ?").get(o))
       throw new Error("Producto no encontrado.");
-    }
-    const tallaInfo = db.prepare(`
+    const f = e.prepare(`
       SELECT cantidad FROM tallas_producto 
       WHERE folio_producto = ? AND talla = ?
-    `).get(folio_producto, talla);
-    if (!tallaInfo || tallaInfo.cantidad < cantidad_vendida) {
-      throw new Error(`Stock insuficiente. Disponible en talla ${talla}: ${(tallaInfo == null ? void 0 : tallaInfo.cantidad) || 0}`);
-    }
-    const stmtVenta = db.prepare(`
+    `).get(o, i);
+    if (!f || f.cantidad < n)
+      throw new Error(`Stock insuficiente. Disponible en talla ${i}: ${(f == null ? void 0 : f.cantidad) || 0}`);
+    const T = e.prepare(`
       INSERT INTO ventas (
         fecha_venta, folio_producto, cantidad_vendida, talla,
         precio_unitario_real, descuento_aplicado, tipo_salida,
@@ -932,78 +809,67 @@ ipcMain.handle("registrar-venta", (_event, datos) => {
         @precio_unitario_real, @descuento_aplicado, @tipo_salida,
         @id_cliente, @responsable_caja, @notas
       )
-    `);
-    const resultado = stmtVenta.run({
-      fecha_venta,
-      folio_producto,
-      cantidad_vendida,
-      talla,
-      precio_unitario_real,
-      descuento_aplicado: descuento_aplicado || 0,
-      tipo_salida,
-      id_cliente: id_cliente || null,
-      responsable_caja,
-      notas: notas || null
+    `).run({
+      fecha_venta: t,
+      folio_producto: o,
+      cantidad_vendida: n,
+      talla: i,
+      precio_unitario_real: r,
+      descuento_aplicado: s || 0,
+      tipo_salida: d,
+      id_cliente: p || null,
+      responsable_caja: v,
+      notas: u || null
     });
-    db.prepare(`
+    e.prepare(`
       UPDATE productos 
       SET stock_actual = stock_actual - @cantidad,
           fecha_ultima_actualizacion = CURRENT_TIMESTAMP
       WHERE folio_producto = @folio
     `).run({
-      cantidad: cantidad_vendida,
-      folio: folio_producto
-    });
-    db.prepare(`
+      cantidad: n,
+      folio: o
+    }), e.prepare(`
       UPDATE tallas_producto
       SET cantidad = cantidad - @cantidad,
           fecha_actualizacion = CURRENT_TIMESTAMP
       WHERE folio_producto = @folio AND talla = @talla
     `).run({
-      cantidad: cantidad_vendida,
-      folio: folio_producto,
-      talla
+      cantidad: n,
+      folio: o,
+      talla: i
     });
-    const tallaActual = db.prepare(`
+    const R = e.prepare(`
       SELECT cantidad FROM tallas_producto 
       WHERE folio_producto = ? AND talla = ?
-    `).get(folio_producto, talla);
-    if (tallaActual && tallaActual.cantidad <= 0) {
-      db.prepare(`
+    `).get(o, i);
+    if (R && R.cantidad <= 0 && e.prepare(`
         DELETE FROM tallas_producto 
         WHERE folio_producto = ? AND talla = ?
-      `).run(folio_producto, talla);
-    }
-    if (id_cliente && (tipo_salida === "Crédito" || tipo_salida === "Apartado")) {
-      const montoTotal = precio_unitario_real * cantidad_vendida - (descuento_aplicado || 0);
-      const abono = abono_inicial || 0;
-      if (abono > montoTotal) {
-        throw new Error(`El abono inicial ($${abono.toFixed(2)}) no puede ser mayor al monto total ($${montoTotal.toFixed(2)}). Esto generaría un saldo negativo.`);
-      }
-      if (abono < 0) {
+      `).run(o, i), p && (d === "Crédito" || d === "Apartado")) {
+      const O = r * n - (s || 0), C = _ || 0;
+      if (C > O)
+        throw new Error(`El abono inicial ($${C.toFixed(2)}) no puede ser mayor al monto total ($${O.toFixed(2)}). Esto generaría un saldo negativo.`);
+      if (C < 0)
         throw new Error("El abono inicial no puede ser negativo.");
-      }
-      db.prepare(`
+      e.prepare(`
         UPDATE clientes 
         SET saldo_pendiente = saldo_pendiente + @monto,
             estado_cuenta = 'Con saldo'
         WHERE id_cliente = @id_cliente
       `).run({
-        monto: montoTotal,
-        id_cliente
-      });
-      db.prepare(`
+        monto: O,
+        id_cliente: p
+      }), e.prepare(`
         INSERT INTO movimientos_cliente (id_cliente, fecha, tipo_movimiento, monto, referencia, responsable)
         VALUES (@id_cliente, @fecha, 'cargo', @monto, @referencia, @responsable)
       `).run({
-        id_cliente,
-        fecha: fecha_venta,
-        monto: montoTotal,
-        referencia: `Venta #${resultado.lastInsertRowid}`,
-        responsable: responsable_caja
-      });
-      if (abono > 0) {
-        db.prepare(`
+        id_cliente: p,
+        fecha: t,
+        monto: O,
+        referencia: `Venta #${T.lastInsertRowid}`,
+        responsable: v
+      }), C > 0 && (e.prepare(`
           UPDATE clientes 
           SET saldo_pendiente = saldo_pendiente - @monto,
               estado_cuenta = CASE 
@@ -1012,55 +878,50 @@ ipcMain.handle("registrar-venta", (_event, datos) => {
               END
           WHERE id_cliente = @id_cliente
         `).run({
-          monto: abono,
-          id_cliente
-        });
-        db.prepare(`
+        monto: C,
+        id_cliente: p
+      }), e.prepare(`
           INSERT INTO movimientos_cliente (id_cliente, fecha, tipo_movimiento, monto, referencia, responsable)
           VALUES (@id_cliente, @fecha, 'abono', @monto, @referencia, @responsable)
         `).run({
-          id_cliente,
-          fecha: fecha_venta,
-          monto: abono,
-          referencia: `Abono inicial - Venta #${resultado.lastInsertRowid}`,
-          responsable: responsable_caja
-        });
-      }
+        id_cliente: p,
+        fecha: t,
+        monto: C,
+        referencia: `Abono inicial - Venta #${T.lastInsertRowid}`,
+        responsable: v
+      }));
     }
-    if (tipo_salida === "Crédito" || tipo_salida === "Apartado" || tipo_salida === "Prestado") {
-      const estadoAnterior = db.prepare("SELECT estado_producto FROM productos WHERE folio_producto = ?").get(folio_producto);
-      db.prepare(`
+    if (d === "Crédito" || d === "Apartado" || d === "Prestado") {
+      const O = e.prepare("SELECT estado_producto FROM productos WHERE folio_producto = ?").get(o);
+      e.prepare(`
         UPDATE productos 
         SET estado_producto = @estado_nuevo
         WHERE folio_producto = @folio
       `).run({
-        estado_nuevo: tipo_salida,
-        folio: folio_producto
-      });
-      db.prepare(`
+        estado_nuevo: d,
+        folio: o
+      }), e.prepare(`
         INSERT INTO estados_producto (folio_producto, fecha_cambio, estado_anterior, estado_nuevo, motivo, responsable)
         VALUES (@folio, @fecha, @estado_anterior, @estado_nuevo, @motivo, @responsable)
       `).run({
-        folio: folio_producto,
-        fecha: fecha_venta,
-        estado_anterior: (estadoAnterior == null ? void 0 : estadoAnterior.estado_producto) || "Disponible",
-        estado_nuevo: tipo_salida,
-        motivo: notas || `Venta registrada como ${tipo_salida}`,
-        responsable: responsable_caja
+        folio: o,
+        fecha: t,
+        estado_anterior: (O == null ? void 0 : O.estado_producto) || "Disponible",
+        estado_nuevo: d,
+        motivo: u || `Venta registrada como ${d}`,
+        responsable: v
       });
     }
   });
   try {
-    registrar();
-    return { success: true };
-  } catch (error) {
-    console.error("Error al registrar venta:", error);
-    throw error;
+    return E(), { success: !0 };
+  } catch (m) {
+    throw console.error("Error al registrar venta:", m), m;
   }
 });
-ipcMain.handle("eliminar-venta", (_event, id_venta) => {
-  const eliminar = db.transaction(() => {
-    const venta = db.prepare(`
+l.handle("eliminar-venta", (c, a) => {
+  const t = e.transaction(() => {
+    const o = e.prepare(`
       SELECT 
         folio_producto,
         cantidad_vendida,
@@ -1071,57 +932,45 @@ ipcMain.handle("eliminar-venta", (_event, id_venta) => {
         descuento_aplicado
       FROM ventas
       WHERE id_venta = ?
-    `).get(id_venta);
-    if (!venta) {
+    `).get(a);
+    if (!o)
       throw new Error("Venta no encontrada.");
-    }
-    db.prepare(`
+    if (e.prepare(`
       UPDATE productos 
       SET stock_actual = stock_actual + @cantidad,
           fecha_ultima_actualizacion = CURRENT_TIMESTAMP
       WHERE folio_producto = @folio
     `).run({
-      cantidad: venta.cantidad_vendida,
-      folio: venta.folio_producto
-    });
-    const tallaExistente = db.prepare(`
+      cantidad: o.cantidad_vendida,
+      folio: o.folio_producto
+    }), e.prepare(`
       SELECT cantidad FROM tallas_producto 
       WHERE folio_producto = ? AND talla = ?
-    `).get(venta.folio_producto, venta.talla);
-    if (tallaExistente) {
-      db.prepare(`
+    `).get(o.folio_producto, o.talla) ? e.prepare(`
         UPDATE tallas_producto
         SET cantidad = cantidad + @cantidad,
             fecha_actualizacion = CURRENT_TIMESTAMP
         WHERE folio_producto = @folio AND talla = @talla
       `).run({
-        cantidad: venta.cantidad_vendida,
-        folio: venta.folio_producto,
-        talla: venta.talla
-      });
-    } else {
-      db.prepare(`
+      cantidad: o.cantidad_vendida,
+      folio: o.folio_producto,
+      talla: o.talla
+    }) : e.prepare(`
         INSERT INTO tallas_producto (folio_producto, talla, cantidad, fecha_actualizacion)
         VALUES (@folio, @talla, @cantidad, CURRENT_TIMESTAMP)
       `).run({
-        folio: venta.folio_producto,
-        talla: venta.talla,
-        cantidad: venta.cantidad_vendida
-      });
-    }
-    if (venta.id_cliente && (venta.tipo_salida === "Crédito" || venta.tipo_salida === "Apartado")) {
-      const montoTotal = venta.precio_unitario_real * venta.cantidad_vendida - (venta.descuento_aplicado || 0);
-      const abonos = db.prepare(`
+      folio: o.folio_producto,
+      talla: o.talla,
+      cantidad: o.cantidad_vendida
+    }), o.id_cliente && (o.tipo_salida === "Crédito" || o.tipo_salida === "Apartado")) {
+      const i = o.precio_unitario_real * o.cantidad_vendida - (o.descuento_aplicado || 0), r = e.prepare(`
         SELECT COALESCE(SUM(monto), 0) as total_abonado
         FROM movimientos_cliente
         WHERE id_cliente = ?
           AND tipo_movimiento = 'abono'
           AND (referencia LIKE ? OR referencia LIKE ?)
-      `).get(venta.id_cliente, `%Venta #${id_venta}%`, `Abono inicial - Venta #${id_venta}%`);
-      const totalAbonado = (abonos == null ? void 0 : abonos.total_abonado) || 0;
-      const saldoARevertir = montoTotal - totalAbonado;
-      if (saldoARevertir > 0) {
-        db.prepare(`
+      `).get(o.id_cliente, `%Venta #${a}%`, `Abono inicial - Venta #${a}%`), s = (r == null ? void 0 : r.total_abonado) || 0, d = i - s;
+      d > 0 && e.prepare(`
           UPDATE clientes 
           SET saldo_pendiente = saldo_pendiente - @monto,
               estado_cuenta = CASE 
@@ -1130,86 +979,78 @@ ipcMain.handle("eliminar-venta", (_event, id_venta) => {
               END
           WHERE id_cliente = @id_cliente
         `).run({
-          monto: saldoARevertir,
-          id_cliente: venta.id_cliente
-        });
-      }
-      db.prepare(`
+        monto: d,
+        id_cliente: o.id_cliente
+      }), e.prepare(`
         DELETE FROM movimientos_cliente
         WHERE id_cliente = ?
           AND (referencia LIKE ? OR referencia LIKE ?)
-      `).run(venta.id_cliente, `%Venta #${id_venta}%`, `Abono inicial - Venta #${id_venta}%`);
+      `).run(o.id_cliente, `%Venta #${a}%`, `Abono inicial - Venta #${a}%`);
     }
-    if (venta.tipo_salida === "Apartado" || venta.tipo_salida === "Prestado") {
-      const ultimoEstado = db.prepare(`
+    if (o.tipo_salida === "Apartado" || o.tipo_salida === "Prestado") {
+      const i = e.prepare(`
         SELECT estado_anterior 
         FROM estados_producto
         WHERE folio_producto = ?
           AND estado_nuevo = ?
         ORDER BY fecha_cambio DESC
         LIMIT 1
-      `).get(venta.folio_producto, venta.tipo_salida);
-      const estadoNuevo = (ultimoEstado == null ? void 0 : ultimoEstado.estado_anterior) || "Disponible";
-      db.prepare(`
+      `).get(o.folio_producto, o.tipo_salida), r = (i == null ? void 0 : i.estado_anterior) || "Disponible";
+      e.prepare(`
         UPDATE productos 
         SET estado_producto = @estadoNuevo
         WHERE folio_producto = @folio
       `).run({
-        estadoNuevo,
-        folio: venta.folio_producto
-      });
-      db.prepare(`
+        estadoNuevo: r,
+        folio: o.folio_producto
+      }), e.prepare(`
         INSERT INTO estados_producto (folio_producto, fecha_cambio, estado_anterior, estado_nuevo, motivo, responsable)
         VALUES (@folio, CURRENT_TIMESTAMP, @estadoAnterior, @estadoNuevo, @motivo, @responsable)
       `).run({
-        folio: venta.folio_producto,
-        estadoAnterior: venta.tipo_salida,
-        estadoNuevo,
+        folio: o.folio_producto,
+        estadoAnterior: o.tipo_salida,
+        estadoNuevo: r,
         motivo: "Venta eliminada - Estado revertido",
         responsable: null
       });
-    } else if (venta.tipo_salida === "Crédito") {
-      const producto = db.prepare("SELECT estado_producto FROM productos WHERE folio_producto = ?").get(venta.folio_producto);
-      if ((producto == null ? void 0 : producto.estado_producto) === "Crédito") {
-        const ultimoEstado = db.prepare(`
+    } else if (o.tipo_salida === "Crédito") {
+      const i = e.prepare("SELECT estado_producto FROM productos WHERE folio_producto = ?").get(o.folio_producto);
+      if ((i == null ? void 0 : i.estado_producto) === "Crédito") {
+        const r = e.prepare(`
           SELECT estado_anterior 
           FROM estados_producto
           WHERE folio_producto = ?
             AND estado_nuevo = 'Crédito'
           ORDER BY fecha_cambio DESC
           LIMIT 1
-        `).get(venta.folio_producto);
-        const estadoNuevo = (ultimoEstado == null ? void 0 : ultimoEstado.estado_anterior) || "Disponible";
-        db.prepare(`
+        `).get(o.folio_producto), s = (r == null ? void 0 : r.estado_anterior) || "Disponible";
+        e.prepare(`
           UPDATE productos 
           SET estado_producto = @estadoNuevo
           WHERE folio_producto = @folio
         `).run({
-          estadoNuevo,
-          folio: venta.folio_producto
-        });
-        db.prepare(`
+          estadoNuevo: s,
+          folio: o.folio_producto
+        }), e.prepare(`
           INSERT INTO estados_producto (folio_producto, fecha_cambio, estado_anterior, estado_nuevo, motivo, responsable)
           VALUES (@folio, CURRENT_TIMESTAMP, 'Crédito', @estadoNuevo, 'Venta eliminada - Estado revertido', NULL)
         `).run({
-          folio: venta.folio_producto,
-          estadoNuevo
+          folio: o.folio_producto,
+          estadoNuevo: s
         });
       }
     }
-    db.prepare("DELETE FROM ventas WHERE id_venta = ?").run(id_venta);
-    return { success: true };
+    return e.prepare("DELETE FROM ventas WHERE id_venta = ?").run(a), { success: !0 };
   });
   try {
-    return eliminar();
-  } catch (error) {
-    console.error("Error al eliminar venta:", error);
-    throw error;
+    return t();
+  } catch (o) {
+    throw console.error("Error al eliminar venta:", o), o;
   }
 });
-ipcMain.handle("eliminar-movimiento-cliente", (_event, id_movimiento) => {
-  const eliminar = db.transaction(() => {
-    const movimiento = db.prepare(`
+l.handle("eliminar-movimiento-cliente", (c, a) => {
+  const t = e.transaction(() => {
+    const o = e.prepare(`
       SELECT 
         id_cliente,
         tipo_movimiento,
@@ -1217,12 +1058,11 @@ ipcMain.handle("eliminar-movimiento-cliente", (_event, id_movimiento) => {
         referencia
       FROM movimientos_cliente
       WHERE id_movimiento = ?
-    `).get(id_movimiento);
-    if (!movimiento) {
+    `).get(a);
+    if (!o)
       throw new Error("Movimiento no encontrado.");
-    }
-    const ajuste = movimiento.tipo_movimiento === "cargo" ? -movimiento.monto : movimiento.monto;
-    db.prepare(`
+    const n = o.tipo_movimiento === "cargo" ? -o.monto : o.monto;
+    return e.prepare(`
       UPDATE clientes 
       SET saldo_pendiente = saldo_pendiente + @ajuste,
           estado_cuenta = CASE 
@@ -1231,31 +1071,24 @@ ipcMain.handle("eliminar-movimiento-cliente", (_event, id_movimiento) => {
           END
       WHERE id_cliente = @id_cliente
     `).run({
-      ajuste,
-      id_cliente: movimiento.id_cliente
-    });
-    db.prepare("DELETE FROM movimientos_cliente WHERE id_movimiento = ?").run(id_movimiento);
-    return { success: true };
+      ajuste: n,
+      id_cliente: o.id_cliente
+    }), e.prepare("DELETE FROM movimientos_cliente WHERE id_movimiento = ?").run(a), { success: !0 };
   });
   try {
-    return eliminar();
-  } catch (error) {
-    console.error("Error al eliminar movimiento de cliente:", error);
-    throw error;
+    return t();
+  } catch (o) {
+    throw console.error("Error al eliminar movimiento de cliente:", o), o;
   }
 });
-ipcMain.handle("get-estadisticas-resumen", (_event, filtro = {}) => {
-  const hoy = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
-  const fechaInicio = filtro.fechaInicio || hoy;
-  const fechaFin = filtro.fechaFin || hoy;
-  const ventasPeriodo = db.prepare(`
+l.handle("get-estadisticas-resumen", (c, a = {}) => {
+  const t = (/* @__PURE__ */ new Date()).toISOString().split("T")[0], o = a.fechaInicio || t, n = a.fechaFin || t, i = e.prepare(`
     SELECT 
       COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as total_ventas,
       COALESCE(COUNT(*), 0) as num_ventas
     FROM ventas
     WHERE DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
-  `).get(fechaInicio, fechaFin);
-  const costosPeriodo = db.prepare(`
+  `).get(o, n), r = e.prepare(`
     SELECT COALESCE(SUM(
       v.cantidad_vendida * (
         SELECT COALESCE(e.costo_unitario_proveedor, 0)
@@ -1267,8 +1100,7 @@ ipcMain.handle("get-estadisticas-resumen", (_event, filtro = {}) => {
     ), 0) as total_costos
     FROM ventas v
     WHERE DATE(v.fecha_venta) >= DATE(?) AND DATE(v.fecha_venta) <= DATE(?)
-  `).get(fechaInicio, fechaFin);
-  const cobradoPeriodo = db.prepare(`
+  `).get(o, n), s = e.prepare(`
     SELECT (
       -- 1. Ventas directas (tipo 'Venta')
       (SELECT COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0)
@@ -1282,13 +1114,11 @@ ipcMain.handle("get-estadisticas-resumen", (_event, filtro = {}) => {
        WHERE tipo_movimiento = 'abono'
        AND DATE(fecha) >= DATE(?) AND DATE(fecha) <= DATE(?))
     ) as total_cobrado
-  `).get(fechaInicio, fechaFin, fechaInicio, fechaFin);
-  const saldoPendiente = db.prepare(`
+  `).get(o, n, o, n), d = e.prepare(`
     SELECT COALESCE(SUM(saldo_pendiente), 0) as total_pendiente
     FROM clientes
     WHERE saldo_pendiente > 0
-  `).get();
-  const valorInventario = db.prepare(`
+  `).get(), p = e.prepare(`
     SELECT COALESCE(SUM(
       tp.cantidad * (
         SELECT COALESCE(e.costo_unitario_proveedor, 0)
@@ -1300,63 +1130,50 @@ ipcMain.handle("get-estadisticas-resumen", (_event, filtro = {}) => {
     ), 0) as valor_inventario
     FROM tallas_producto tp
     WHERE tp.cantidad > 0
-  `).get();
-  const totalVentas = (ventasPeriodo == null ? void 0 : ventasPeriodo.total_ventas) || 0;
-  const totalCostos = (costosPeriodo == null ? void 0 : costosPeriodo.total_costos) || 0;
+  `).get(), _ = (i == null ? void 0 : i.total_ventas) || 0, v = (r == null ? void 0 : r.total_costos) || 0;
   return {
-    ventasTotales: totalVentas,
-    costosTotales: totalCostos,
-    gananciaNeta: totalVentas - totalCostos,
-    totalCobrado: (cobradoPeriodo == null ? void 0 : cobradoPeriodo.total_cobrado) || 0,
-    saldoPendiente: (saldoPendiente == null ? void 0 : saldoPendiente.total_pendiente) || 0,
-    valorInventario: (valorInventario == null ? void 0 : valorInventario.valor_inventario) || 0,
-    numVentas: (ventasPeriodo == null ? void 0 : ventasPeriodo.num_ventas) || 0
+    ventasTotales: _,
+    costosTotales: v,
+    gananciaNeta: _ - v,
+    totalCobrado: (s == null ? void 0 : s.total_cobrado) || 0,
+    saldoPendiente: (d == null ? void 0 : d.total_pendiente) || 0,
+    valorInventario: (p == null ? void 0 : p.valor_inventario) || 0,
+    numVentas: (i == null ? void 0 : i.num_ventas) || 0
   };
 });
-ipcMain.handle("get-ventas-por-periodo", (_event, filtro) => {
-  const { fechaInicio, fechaFin, agrupacion = "dia" } = filtro;
-  let groupBy;
-  let selectPeriodo;
-  switch (agrupacion) {
+l.handle("get-ventas-por-periodo", (c, a) => {
+  const { fechaInicio: t, fechaFin: o, agrupacion: n = "dia" } = a;
+  let i, r;
+  switch (n) {
     case "hora":
-      selectPeriodo = "strftime('%H', fecha_venta)";
-      groupBy = "strftime('%H', fecha_venta)";
+      r = "strftime('%H', fecha_venta)", i = "strftime('%H', fecha_venta)";
       break;
     case "dia_semana":
-      selectPeriodo = "strftime('%w', fecha_venta)";
-      groupBy = "strftime('%w', fecha_venta)";
+      r = "strftime('%w', fecha_venta)", i = "strftime('%w', fecha_venta)";
       break;
     case "dia_mes":
-      selectPeriodo = "strftime('%d', fecha_venta)";
-      groupBy = "strftime('%d', fecha_venta)";
+      r = "strftime('%d', fecha_venta)", i = "strftime('%d', fecha_venta)";
       break;
     case "mes":
-      selectPeriodo = "strftime('%m', fecha_venta)";
-      groupBy = "strftime('%m', fecha_venta)";
+      r = "strftime('%m', fecha_venta)", i = "strftime('%m', fecha_venta)";
       break;
     default:
-      selectPeriodo = "DATE(fecha_venta)";
-      groupBy = "DATE(fecha_venta)";
+      r = "DATE(fecha_venta)", i = "DATE(fecha_venta)";
   }
-  const ventas = db.prepare(`
+  return e.prepare(`
     SELECT 
-      ${selectPeriodo} as periodo,
+      ${r} as periodo,
       COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as total_ventas,
       COUNT(*) as num_ventas
     FROM ventas
     WHERE DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
-    GROUP BY ${groupBy}
+    GROUP BY ${i}
     ORDER BY periodo ASC
-  `).all(fechaInicio, fechaFin);
-  return ventas;
+  `).all(t, o);
 });
-ipcMain.handle("get-productos-mas-vendidos", (_event, filtro = {}) => {
-  const hoy = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
-  const hace30Dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1e3).toISOString().split("T")[0];
-  const fechaInicio = filtro.fechaInicio || hace30Dias;
-  const fechaFin = filtro.fechaFin || hoy;
-  const limite = filtro.limite || 10;
-  const productos = db.prepare(`
+l.handle("get-productos-mas-vendidos", (c, a = {}) => {
+  const t = (/* @__PURE__ */ new Date()).toISOString().split("T")[0], o = new Date(Date.now() - 30 * 24 * 60 * 60 * 1e3).toISOString().split("T")[0], n = a.fechaInicio || o, i = a.fechaFin || t, r = a.limite || 10;
+  return e.prepare(`
     SELECT 
       v.folio_producto,
       p.nombre_producto,
@@ -1368,15 +1185,11 @@ ipcMain.handle("get-productos-mas-vendidos", (_event, filtro = {}) => {
     GROUP BY v.folio_producto
     ORDER BY monto_total DESC
     LIMIT ?
-  `).all(fechaInicio, fechaFin, limite);
-  return productos;
+  `).all(n, i, r);
 });
-ipcMain.handle("get-ventas-por-categoria", (_event, filtro = {}) => {
-  const hoy = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
-  const hace30Dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1e3).toISOString().split("T")[0];
-  const fechaInicio = filtro.fechaInicio || hace30Dias;
-  const fechaFin = filtro.fechaFin || hoy;
-  const categorias = db.prepare(`
+l.handle("get-ventas-por-categoria", (c, a = {}) => {
+  const t = (/* @__PURE__ */ new Date()).toISOString().split("T")[0], o = new Date(Date.now() - 30 * 24 * 60 * 60 * 1e3).toISOString().split("T")[0], n = a.fechaInicio || o, i = a.fechaFin || t;
+  return e.prepare(`
     SELECT 
       p.categoria,
       SUM(v.cantidad_vendida) as unidades_vendidas,
@@ -1386,15 +1199,11 @@ ipcMain.handle("get-ventas-por-categoria", (_event, filtro = {}) => {
     WHERE DATE(v.fecha_venta) >= DATE(?) AND DATE(v.fecha_venta) <= DATE(?)
     GROUP BY p.categoria
     ORDER BY monto_total DESC
-  `).all(fechaInicio, fechaFin);
-  return categorias;
+  `).all(n, i);
 });
-ipcMain.handle("get-ventas-por-tipo", (_event, filtro = {}) => {
-  const hoy = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
-  const hace30Dias = new Date(Date.now() - 30 * 24 * 60 * 60 * 1e3).toISOString().split("T")[0];
-  const fechaInicio = filtro.fechaInicio || hace30Dias;
-  const fechaFin = filtro.fechaFin || hoy;
-  const tipos = db.prepare(`
+l.handle("get-ventas-por-tipo", (c, a = {}) => {
+  const t = (/* @__PURE__ */ new Date()).toISOString().split("T")[0], o = new Date(Date.now() - 30 * 24 * 60 * 60 * 1e3).toISOString().split("T")[0], n = a.fechaInicio || o, i = a.fechaFin || t;
+  return e.prepare(`
     SELECT 
       tipo_salida,
       COUNT(*) as cantidad,
@@ -1403,22 +1212,16 @@ ipcMain.handle("get-ventas-por-tipo", (_event, filtro = {}) => {
     WHERE DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
     GROUP BY tipo_salida
     ORDER BY monto_total DESC
-  `).all(fechaInicio, fechaFin);
-  return tipos;
+  `).all(n, i);
 });
-ipcMain.handle("get-ventas-comparativas", (_event, params) => {
-  const { tipo, periodos } = params;
-  const resultados = {};
-  for (const periodo of periodos) {
-    let dateStart;
-    let dateEnd;
-    let puntos = [];
-    if (tipo === "mes") {
-      const [year, month] = periodo.split("-").map(Number);
-      const daysInMonth = new Date(year, month, 0).getDate();
-      dateStart = `${year}-${String(month).padStart(2, "0")}-01`;
-      dateEnd = `${year}-${String(month).padStart(2, "0")}-${daysInMonth}`;
-      const ventas = db.prepare(`
+l.handle("get-ventas-comparativas", (c, a) => {
+  const { tipo: t, periodos: o } = a, n = {};
+  for (const i of o) {
+    let r, s, d = [];
+    if (t === "mes") {
+      const [_, v] = i.split("-").map(Number), u = new Date(_, v, 0).getDate();
+      r = `${_}-${String(v).padStart(2, "0")}-01`, s = `${_}-${String(v).padStart(2, "0")}-${u}`;
+      const E = e.prepare(`
         SELECT 
           CAST(strftime('%d', fecha_venta) AS INTEGER) as dia,
           COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as ganancia
@@ -1426,26 +1229,19 @@ ipcMain.handle("get-ventas-comparativas", (_event, params) => {
         WHERE DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
         GROUP BY strftime('%d', fecha_venta)
         ORDER BY dia
-      `).all(dateStart, dateEnd);
-      for (let d = 1; d <= 31; d++) {
-        const found = ventas.find((v) => v.dia === d);
-        puntos.push({ x: d, y: found ? found.ganancia : 0 });
+      `).all(r, s);
+      for (let m = 1; m <= 31; m++) {
+        const f = E.find((S) => S.dia === m);
+        d.push({ x: m, y: f ? f.ganancia : 0 });
       }
-    } else if (tipo === "semana") {
-      const [year, weekStr] = periodo.split("-W");
-      const weekNum = parseInt(weekStr);
-      const jan4 = new Date(parseInt(year), 0, 4);
-      const dayOfWeek = jan4.getDay() || 7;
-      const firstMonday = new Date(jan4);
-      firstMonday.setDate(jan4.getDate() - dayOfWeek + 1);
-      const weekStart = new Date(firstMonday);
-      weekStart.setDate(firstMonday.getDate() + (weekNum - 1) * 7);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 6);
-      dateStart = weekStart.toISOString().split("T")[0];
-      dateEnd = weekEnd.toISOString().split("T")[0];
-      const diasSemana = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-      const ventas = db.prepare(`
+    } else if (t === "semana") {
+      const [_, v] = i.split("-W"), u = parseInt(v), E = new Date(parseInt(_), 0, 4), m = E.getDay() || 7, f = new Date(E);
+      f.setDate(E.getDate() - m + 1);
+      const S = new Date(f);
+      S.setDate(f.getDate() + (u - 1) * 7);
+      const T = new Date(S);
+      T.setDate(S.getDate() + 6), r = S.toISOString().split("T")[0], s = T.toISOString().split("T")[0];
+      const R = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"], O = e.prepare(`
         SELECT 
           CAST(strftime('%w', fecha_venta) AS INTEGER) as dia_semana,
           COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as ganancia
@@ -1453,18 +1249,15 @@ ipcMain.handle("get-ventas-comparativas", (_event, params) => {
         WHERE DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
         GROUP BY strftime('%w', fecha_venta)
         ORDER BY dia_semana
-      `).all(dateStart, dateEnd);
-      for (let d = 0; d < 7; d++) {
-        const sqlDow = d === 6 ? 0 : d + 1;
-        const found = ventas.find((v) => v.dia_semana === sqlDow);
-        puntos.push({ x: diasSemana[d], y: found ? found.ganancia : 0 });
+      `).all(r, s);
+      for (let C = 0; C < 7; C++) {
+        const y = C === 6 ? 0 : C + 1, M = O.find((W) => W.dia_semana === y);
+        d.push({ x: R[C], y: M ? M.ganancia : 0 });
       }
-    } else if (tipo === "anio") {
-      const year = parseInt(periodo);
-      dateStart = `${year}-01-01`;
-      dateEnd = `${year}-12-31`;
-      const meses = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-      const ventas = db.prepare(`
+    } else if (t === "anio") {
+      const _ = parseInt(i);
+      r = `${_}-01-01`, s = `${_}-12-31`;
+      const v = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"], u = e.prepare(`
         SELECT 
           CAST(strftime('%m', fecha_venta) AS INTEGER) as mes,
           COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as ganancia
@@ -1472,97 +1265,78 @@ ipcMain.handle("get-ventas-comparativas", (_event, params) => {
         WHERE DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
         GROUP BY strftime('%m', fecha_venta)
         ORDER BY mes
-      `).all(dateStart, dateEnd);
-      for (let m = 1; m <= 12; m++) {
-        const found = ventas.find((v) => v.mes === m);
-        puntos.push({ x: meses[m - 1], y: found ? found.ganancia : 0 });
+      `).all(r, s);
+      for (let E = 1; E <= 12; E++) {
+        const m = u.find((f) => f.mes === E);
+        d.push({ x: v[E - 1], y: m ? m.ganancia : 0 });
       }
     }
-    const total = puntos.reduce((sum, p) => sum + p.y, 0);
-    resultados[periodo] = { puntos, total };
+    const p = d.reduce((_, v) => _ + v.y, 0);
+    n[i] = { puntos: d, total: p };
   }
-  return resultados;
+  return n;
 });
-ipcMain.handle("get-ventas-productos-comparativas", (_event, params) => {
-  const { productos, tipo } = params;
-  const resultados = {};
-  const hoy = /* @__PURE__ */ new Date();
-  const year = hoy.getFullYear();
-  const month = String(hoy.getMonth() + 1).padStart(2, "0");
-  let dateStart = "";
-  let dateEnd = "";
-  let xLabels = [];
-  if (tipo === "mes") {
-    const daysInMonth = new Date(year, hoy.getMonth() + 1, 0).getDate();
-    dateStart = `${year}-${month}-01`;
-    dateEnd = `${year}-${month}-${daysInMonth}`;
-    xLabels = Array.from({ length: 31 }, (_, i) => i + 1);
-  } else if (tipo === "semana") {
-    const dayOfWeek = hoy.getDay() || 7;
-    const monday = new Date(hoy);
-    monday.setDate(hoy.getDate() - dayOfWeek + 1);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    dateStart = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
-    dateEnd = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, "0")}-${String(sunday.getDate()).padStart(2, "0")}`;
-    xLabels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-  } else if (tipo === "anio") {
-    dateStart = `${year}-01-01`;
-    dateEnd = `${year}-12-31`;
-    xLabels = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-  }
-  for (const folio of productos) {
-    const prod = db.prepare("SELECT nombre_producto FROM productos WHERE folio_producto = ?").get(folio);
-    const nombre = (prod == null ? void 0 : prod.nombre_producto) || folio;
-    let puntos = [];
-    if (tipo === "mes") {
-      const ventas = db.prepare(`
+l.handle("get-ventas-productos-comparativas", (c, a) => {
+  const { productos: t, tipo: o } = a, n = {}, i = /* @__PURE__ */ new Date(), r = i.getFullYear(), s = String(i.getMonth() + 1).padStart(2, "0");
+  let d = "", p = "", _ = [];
+  if (o === "mes") {
+    const v = new Date(r, i.getMonth() + 1, 0).getDate();
+    d = `${r}-${s}-01`, p = `${r}-${s}-${v}`, _ = Array.from({ length: 31 }, (u, E) => E + 1);
+  } else if (o === "semana") {
+    const v = i.getDay() || 7, u = new Date(i);
+    u.setDate(i.getDate() - v + 1);
+    const E = new Date(u);
+    E.setDate(u.getDate() + 6), d = `${u.getFullYear()}-${String(u.getMonth() + 1).padStart(2, "0")}-${String(u.getDate()).padStart(2, "0")}`, p = `${E.getFullYear()}-${String(E.getMonth() + 1).padStart(2, "0")}-${String(E.getDate()).padStart(2, "0")}`, _ = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+  } else o === "anio" && (d = `${r}-01-01`, p = `${r}-12-31`, _ = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]);
+  for (const v of t) {
+    const u = e.prepare("SELECT nombre_producto FROM productos WHERE folio_producto = ?").get(v), E = (u == null ? void 0 : u.nombre_producto) || v;
+    let m = [];
+    if (o === "mes") {
+      const S = e.prepare(`
         SELECT 
           CAST(strftime('%d', fecha_venta) AS INTEGER) as dia,
           COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as ganancia
         FROM ventas
         WHERE folio_producto = ? AND DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
         GROUP BY strftime('%d', fecha_venta)
-      `).all(folio, dateStart, dateEnd);
-      for (let d = 1; d <= 31; d++) {
-        const found = ventas.find((v) => v.dia === d);
-        puntos.push({ x: d, y: found ? found.ganancia : 0 });
+      `).all(v, d, p);
+      for (let T = 1; T <= 31; T++) {
+        const R = S.find((O) => O.dia === T);
+        m.push({ x: T, y: R ? R.ganancia : 0 });
       }
-    } else if (tipo === "semana") {
-      const ventas = db.prepare(`
+    } else if (o === "semana") {
+      const S = e.prepare(`
         SELECT 
           CAST(strftime('%w', fecha_venta) AS INTEGER) as dia_semana,
           COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as ganancia
         FROM ventas
         WHERE folio_producto = ? AND DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
         GROUP BY strftime('%w', fecha_venta)
-      `).all(folio, dateStart, dateEnd);
-      for (let d = 0; d < 7; d++) {
-        const sqlDow = d === 6 ? 0 : d + 1;
-        const found = ventas.find((v) => v.dia_semana === sqlDow);
-        puntos.push({ x: xLabels[d], y: found ? found.ganancia : 0 });
+      `).all(v, d, p);
+      for (let T = 0; T < 7; T++) {
+        const R = T === 6 ? 0 : T + 1, O = S.find((C) => C.dia_semana === R);
+        m.push({ x: _[T], y: O ? O.ganancia : 0 });
       }
-    } else if (tipo === "anio") {
-      const ventas = db.prepare(`
+    } else if (o === "anio") {
+      const S = e.prepare(`
         SELECT 
           CAST(strftime('%m', fecha_venta) AS INTEGER) as mes,
           COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as ganancia
         FROM ventas
         WHERE folio_producto = ? AND DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
         GROUP BY strftime('%m', fecha_venta)
-      `).all(folio, dateStart, dateEnd);
-      for (let m = 1; m <= 12; m++) {
-        const found = ventas.find((v) => v.mes === m);
-        puntos.push({ x: xLabels[m - 1], y: found ? found.ganancia : 0 });
+      `).all(v, d, p);
+      for (let T = 1; T <= 12; T++) {
+        const R = S.find((O) => O.mes === T);
+        m.push({ x: _[T - 1], y: R ? R.ganancia : 0 });
       }
     }
-    const total = puntos.reduce((sum, p) => sum + p.y, 0);
-    resultados[folio] = { nombre, puntos, total };
+    const f = m.reduce((S, T) => S + T.y, 0);
+    n[v] = { nombre: E, puntos: m, total: f };
   }
-  return resultados;
+  return n;
 });
-ipcMain.handle("get-top-productos-vendidos", (_event, limit = 5) => {
-  const productos = db.prepare(`
+l.handle("get-top-productos-vendidos", (c, a = 5) => e.prepare(`
     SELECT 
       v.folio_producto,
       p.nombre_producto,
@@ -1573,41 +1347,23 @@ ipcMain.handle("get-top-productos-vendidos", (_event, limit = 5) => {
     GROUP BY v.folio_producto
     ORDER BY total_vendido DESC
     LIMIT ?
-  `).all(limit);
-  return productos;
-});
-ipcMain.handle("get-ventas-proveedores-comparativas", (_event, params) => {
-  const { proveedores, tipo } = params;
-  const resultados = {};
-  const hoy = /* @__PURE__ */ new Date();
-  const year = hoy.getFullYear();
-  const month = String(hoy.getMonth() + 1).padStart(2, "0");
-  let dateStart = "";
-  let dateEnd = "";
-  let xLabels = [];
-  if (tipo === "mes") {
-    const daysInMonth = new Date(year, hoy.getMonth() + 1, 0).getDate();
-    dateStart = `${year}-${month}-01`;
-    dateEnd = `${year}-${month}-${daysInMonth}`;
-    xLabels = Array.from({ length: 31 }, (_, i) => i + 1);
-  } else if (tipo === "semana") {
-    const dayOfWeek = hoy.getDay() || 7;
-    const monday = new Date(hoy);
-    monday.setDate(hoy.getDate() - dayOfWeek + 1);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-    dateStart = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
-    dateEnd = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, "0")}-${String(sunday.getDate()).padStart(2, "0")}`;
-    xLabels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-  } else if (tipo === "anio") {
-    dateStart = `${year}-01-01`;
-    dateEnd = `${year}-12-31`;
-    xLabels = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-  }
-  for (const proveedor of proveedores) {
-    let puntos = [];
-    if (tipo === "mes") {
-      const ventas = db.prepare(`
+  `).all(a));
+l.handle("get-ventas-proveedores-comparativas", (c, a) => {
+  const { proveedores: t, tipo: o } = a, n = {}, i = /* @__PURE__ */ new Date(), r = i.getFullYear(), s = String(i.getMonth() + 1).padStart(2, "0");
+  let d = "", p = "", _ = [];
+  if (o === "mes") {
+    const v = new Date(r, i.getMonth() + 1, 0).getDate();
+    d = `${r}-${s}-01`, p = `${r}-${s}-${v}`, _ = Array.from({ length: 31 }, (u, E) => E + 1);
+  } else if (o === "semana") {
+    const v = i.getDay() || 7, u = new Date(i);
+    u.setDate(i.getDate() - v + 1);
+    const E = new Date(u);
+    E.setDate(u.getDate() + 6), d = `${u.getFullYear()}-${String(u.getMonth() + 1).padStart(2, "0")}-${String(u.getDate()).padStart(2, "0")}`, p = `${E.getFullYear()}-${String(E.getMonth() + 1).padStart(2, "0")}-${String(E.getDate()).padStart(2, "0")}`, _ = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+  } else o === "anio" && (d = `${r}-01-01`, p = `${r}-12-31`, _ = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]);
+  for (const v of t) {
+    let u = [];
+    if (o === "mes") {
+      const m = e.prepare(`
         SELECT 
           CAST(strftime('%d', v.fecha_venta) AS INTEGER) as dia,
           COALESCE(SUM(v.cantidad_vendida * v.precio_unitario_real - COALESCE(v.descuento_aplicado, 0)), 0) as ganancia
@@ -1615,13 +1371,13 @@ ipcMain.handle("get-ventas-proveedores-comparativas", (_event, params) => {
         JOIN productos p ON v.folio_producto = p.folio_producto
         WHERE p.proveedor = ? AND DATE(v.fecha_venta) >= DATE(?) AND DATE(v.fecha_venta) <= DATE(?)
         GROUP BY strftime('%d', v.fecha_venta)
-      `).all(proveedor, dateStart, dateEnd);
-      for (let d = 1; d <= 31; d++) {
-        const found = ventas.find((v) => v.dia === d);
-        puntos.push({ x: d, y: found ? found.ganancia : 0 });
+      `).all(v, d, p);
+      for (let f = 1; f <= 31; f++) {
+        const S = m.find((T) => T.dia === f);
+        u.push({ x: f, y: S ? S.ganancia : 0 });
       }
-    } else if (tipo === "semana") {
-      const ventas = db.prepare(`
+    } else if (o === "semana") {
+      const m = e.prepare(`
         SELECT 
           CAST(strftime('%w', v.fecha_venta) AS INTEGER) as dia_semana,
           COALESCE(SUM(v.cantidad_vendida * v.precio_unitario_real - COALESCE(v.descuento_aplicado, 0)), 0) as ganancia
@@ -1629,14 +1385,13 @@ ipcMain.handle("get-ventas-proveedores-comparativas", (_event, params) => {
         JOIN productos p ON v.folio_producto = p.folio_producto
         WHERE p.proveedor = ? AND DATE(v.fecha_venta) >= DATE(?) AND DATE(v.fecha_venta) <= DATE(?)
         GROUP BY strftime('%w', v.fecha_venta)
-      `).all(proveedor, dateStart, dateEnd);
-      for (let d = 0; d < 7; d++) {
-        const sqlDow = d === 6 ? 0 : d + 1;
-        const found = ventas.find((v) => v.dia_semana === sqlDow);
-        puntos.push({ x: xLabels[d], y: found ? found.ganancia : 0 });
+      `).all(v, d, p);
+      for (let f = 0; f < 7; f++) {
+        const S = f === 6 ? 0 : f + 1, T = m.find((R) => R.dia_semana === S);
+        u.push({ x: _[f], y: T ? T.ganancia : 0 });
       }
-    } else if (tipo === "anio") {
-      const ventas = db.prepare(`
+    } else if (o === "anio") {
+      const m = e.prepare(`
         SELECT 
           CAST(strftime('%m', v.fecha_venta) AS INTEGER) as mes,
           COALESCE(SUM(v.cantidad_vendida * v.precio_unitario_real - COALESCE(v.descuento_aplicado, 0)), 0) as ganancia
@@ -1644,19 +1399,18 @@ ipcMain.handle("get-ventas-proveedores-comparativas", (_event, params) => {
         JOIN productos p ON v.folio_producto = p.folio_producto
         WHERE p.proveedor = ? AND DATE(v.fecha_venta) >= DATE(?) AND DATE(v.fecha_venta) <= DATE(?)
         GROUP BY strftime('%m', v.fecha_venta)
-      `).all(proveedor, dateStart, dateEnd);
-      for (let m = 1; m <= 12; m++) {
-        const found = ventas.find((v) => v.mes === m);
-        puntos.push({ x: xLabels[m - 1], y: found ? found.ganancia : 0 });
+      `).all(v, d, p);
+      for (let f = 1; f <= 12; f++) {
+        const S = m.find((T) => T.mes === f);
+        u.push({ x: _[f - 1], y: S ? S.ganancia : 0 });
       }
     }
-    const total = puntos.reduce((sum, p) => sum + p.y, 0);
-    resultados[proveedor] = { puntos, total };
+    const E = u.reduce((m, f) => m + f.y, 0);
+    n[v] = { puntos: u, total: E };
   }
-  return resultados;
+  return n;
 });
-ipcMain.handle("get-top-proveedores-vendidos", (_event, limit = 5) => {
-  const proveedores = db.prepare(`
+l.handle("get-top-proveedores-vendidos", (c, a = 5) => e.prepare(`
     SELECT 
       p.proveedor,
       SUM(v.cantidad_vendida) as unidades_vendidas,
@@ -1667,11 +1421,8 @@ ipcMain.handle("get-top-proveedores-vendidos", (_event, limit = 5) => {
     GROUP BY p.proveedor
     ORDER BY total_vendido DESC
     LIMIT ?
-  `).all(limit);
-  return proveedores;
-});
-ipcMain.handle("get-clientes-con-saldo", () => {
-  const clientes = db.prepare(`
+  `).all(a));
+l.handle("get-clientes-con-saldo", () => e.prepare(`
     SELECT 
       id_cliente,
       nombre_completo,
@@ -1681,12 +1432,10 @@ ipcMain.handle("get-clientes-con-saldo", () => {
     FROM clientes
     WHERE saldo_pendiente > 0
     ORDER BY saldo_pendiente DESC
-  `).all();
-  return clientes;
-});
-ipcMain.handle("get-inventario-kpis", () => {
+  `).all());
+l.handle("get-inventario-kpis", () => {
   try {
-    const valorInventario = db.prepare(`
+    const c = e.prepare(`
       SELECT COALESCE(SUM(
         tp.cantidad * (
           SELECT COALESCE(e.costo_unitario_proveedor, 0)
@@ -1707,38 +1456,34 @@ ipcMain.handle("get-inventario-kpis", () => {
       ), 0) as valor_venta
       FROM tallas_producto tp
       WHERE tp.cantidad > 0
-    `).get();
-    const conteos = db.prepare(`
+    `).get(), a = e.prepare(`
       SELECT 
         COUNT(DISTINCT p.folio_producto) as total_productos,
         COALESCE(SUM(tp.cantidad), 0) as total_unidades,
         COUNT(DISTINCT p.categoria) as total_categorias
       FROM productos p
       LEFT JOIN tallas_producto tp ON p.folio_producto = tp.folio_producto
-    `).get();
-    const bajoStock = db.prepare(`
+    `).get(), t = e.prepare(`
       SELECT COUNT(*) as cantidad
       FROM productos
       WHERE stock_actual <= stock_minimo AND stock_actual > 0
-    `).get();
-    const sinStock = db.prepare(`
+    `).get(), o = e.prepare(`
       SELECT COUNT(*) as cantidad
       FROM productos
       WHERE stock_actual = 0
     `).get();
     return {
-      valorInventarioCosto: (valorInventario == null ? void 0 : valorInventario.valor_costo) || 0,
-      valorInventarioVenta: (valorInventario == null ? void 0 : valorInventario.valor_venta) || 0,
-      gananciaProyectada: ((valorInventario == null ? void 0 : valorInventario.valor_venta) || 0) - ((valorInventario == null ? void 0 : valorInventario.valor_costo) || 0),
-      totalProductos: (conteos == null ? void 0 : conteos.total_productos) || 0,
-      totalUnidades: (conteos == null ? void 0 : conteos.total_unidades) || 0,
-      totalCategorias: (conteos == null ? void 0 : conteos.total_categorias) || 0,
-      productosBajoStock: (bajoStock == null ? void 0 : bajoStock.cantidad) || 0,
-      productosSinStock: (sinStock == null ? void 0 : sinStock.cantidad) || 0
+      valorInventarioCosto: (c == null ? void 0 : c.valor_costo) || 0,
+      valorInventarioVenta: (c == null ? void 0 : c.valor_venta) || 0,
+      gananciaProyectada: ((c == null ? void 0 : c.valor_venta) || 0) - ((c == null ? void 0 : c.valor_costo) || 0),
+      totalProductos: (a == null ? void 0 : a.total_productos) || 0,
+      totalUnidades: (a == null ? void 0 : a.total_unidades) || 0,
+      totalCategorias: (a == null ? void 0 : a.total_categorias) || 0,
+      productosBajoStock: (t == null ? void 0 : t.cantidad) || 0,
+      productosSinStock: (o == null ? void 0 : o.cantidad) || 0
     };
-  } catch (error) {
-    console.error("Error al obtener KPIs de inventario:", error);
-    return {
+  } catch (c) {
+    return console.error("Error al obtener KPIs de inventario:", c), {
       valorInventarioCosto: 0,
       valorInventarioVenta: 0,
       gananciaProyectada: 0,
@@ -1750,9 +1495,9 @@ ipcMain.handle("get-inventario-kpis", () => {
     };
   }
 });
-ipcMain.handle("get-productos-bajo-stock", () => {
+l.handle("get-productos-bajo-stock", () => {
   try {
-    const productos = db.prepare(`
+    return e.prepare(`
       SELECT 
         categoria,
         SUM(stock_actual) as stock_actual,
@@ -1763,28 +1508,24 @@ ipcMain.handle("get-productos-bajo-stock", () => {
       HAVING SUM(stock_actual) <= SUM(stock_minimo)
       ORDER BY stock_actual ASC
     `).all();
-    return productos;
-  } catch (error) {
-    console.error("Error al obtener productos bajo stock:", error);
-    throw error;
+  } catch (c) {
+    throw console.error("Error al obtener productos bajo stock:", c), c;
   }
 });
-ipcMain.handle("update-stock-minimo", (_event, { folio_producto, stock_minimo }) => {
+l.handle("update-stock-minimo", (c, { folio_producto: a, stock_minimo: t }) => {
   try {
-    db.prepare(`
+    return e.prepare(`
       UPDATE productos 
       SET stock_minimo = ?
       WHERE folio_producto = ?
-    `).run(stock_minimo, folio_producto);
-    return { success: true };
-  } catch (error) {
-    console.error("Error al actualizar stock mínimo:", error);
-    throw error;
+    `).run(t, a), { success: !0 };
+  } catch (o) {
+    throw console.error("Error al actualizar stock mínimo:", o), o;
   }
 });
-ipcMain.handle("get-inventario-por-categoria", () => {
+l.handle("get-inventario-por-categoria", () => {
   try {
-    const categorias = db.prepare(`
+    return e.prepare(`
       SELECT 
         p.categoria,
         COUNT(DISTINCT p.folio_producto) as num_productos,
@@ -1811,23 +1552,21 @@ ipcMain.handle("get-inventario-por-categoria", () => {
       LEFT JOIN tallas_producto tp ON p.folio_producto = tp.folio_producto
       GROUP BY p.categoria
       ORDER BY p.categoria ASC
-    `).all();
-    return categorias.map((cat) => ({
-      categoria: cat.categoria,
-      numProductos: cat.num_productos,
-      totalUnidades: cat.total_unidades,
-      valorCosto: cat.valor_costo,
-      valorVenta: cat.valor_venta,
-      gananciaProyectada: cat.valor_venta - cat.valor_costo
+    `).all().map((a) => ({
+      categoria: a.categoria,
+      numProductos: a.num_productos,
+      totalUnidades: a.total_unidades,
+      valorCosto: a.valor_costo,
+      valorVenta: a.valor_venta,
+      gananciaProyectada: a.valor_venta - a.valor_costo
     }));
-  } catch (error) {
-    console.error("Error al obtener inventario por categoría:", error);
-    return [];
+  } catch (c) {
+    return console.error("Error al obtener inventario por categoría:", c), [];
   }
 });
-ipcMain.handle("get-productos-por-categoria", (_event, categoria) => {
+l.handle("get-productos-por-categoria", (c, a) => {
   try {
-    const stmt = db.prepare(`
+    return e.prepare(`
       SELECT 
         p.*, 
         json_group_array(json_object('talla', tp.talla, 'cantidad', tp.cantidad)) as tallas_detalle,
@@ -1838,20 +1577,17 @@ ipcMain.handle("get-productos-por-categoria", (_event, categoria) => {
       WHERE p.categoria = ?
       GROUP BY p.folio_producto
       ORDER BY p.nombre_producto ASC
-    `);
-    const productos = stmt.all(categoria);
-    return productos.map((p) => ({
-      ...p,
-      tallas_detalle: p.tallas_detalle ? JSON.parse(p.tallas_detalle) : []
+    `).all(a).map((n) => ({
+      ...n,
+      tallas_detalle: n.tallas_detalle ? JSON.parse(n.tallas_detalle) : []
     }));
-  } catch (error) {
-    console.error("Error al obtener productos por categoría:", error);
-    return [];
+  } catch (t) {
+    return console.error("Error al obtener productos por categoría:", t), [];
   }
 });
-ipcMain.handle("get-movimientos-inventario-recientes", (_event, limite = 20) => {
+l.handle("get-movimientos-inventario-recientes", (c, a = 20) => {
   try {
-    const movimientos = db.prepare(`
+    return e.prepare(`
       SELECT 
         'entrada' as tipo,
         e.id_entrada as id,
@@ -1892,20 +1628,14 @@ ipcMain.handle("get-movimientos-inventario-recientes", (_event, limite = 20) => 
       
       ORDER BY fecha DESC
       LIMIT ?
-    `).all(limite);
-    return movimientos;
-  } catch (error) {
-    console.error("Error al obtener movimientos de inventario:", error);
-    return [];
+    `).all(a);
+  } catch (t) {
+    return console.error("Error al obtener movimientos de inventario:", t), [];
   }
 });
-ipcMain.handle("get-entradas-kpis", () => {
+l.handle("get-entradas-kpis", () => {
   try {
-    const hoy = /* @__PURE__ */ new Date();
-    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split("T")[0];
-    const inicioAnio = new Date(hoy.getFullYear(), 0, 1).toISOString().split("T")[0];
-    const finHoy = hoy.toISOString().split("T")[0];
-    const entradasMes = db.prepare(`
+    const c = /* @__PURE__ */ new Date(), a = new Date(c.getFullYear(), c.getMonth(), 1).toISOString().split("T")[0], t = new Date(c.getFullYear(), 0, 1).toISOString().split("T")[0], o = c.toISOString().split("T")[0], n = e.prepare(`
       SELECT 
         COUNT(*) as num_entradas,
         COALESCE(SUM(cantidad_recibida), 0) as total_unidades,
@@ -1914,8 +1644,7 @@ ipcMain.handle("get-entradas-kpis", () => {
       FROM entradas
       WHERE DATE(fecha_entrada) >= DATE(?) AND DATE(fecha_entrada) <= DATE(?)
         AND tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
-    `).get(inicioMes, finHoy);
-    const entradasAnio = db.prepare(`
+    `).get(a, o), i = e.prepare(`
       SELECT 
         COUNT(*) as num_entradas,
         COALESCE(SUM(cantidad_recibida), 0) as total_unidades,
@@ -1924,8 +1653,7 @@ ipcMain.handle("get-entradas-kpis", () => {
       FROM entradas
       WHERE DATE(fecha_entrada) >= DATE(?) AND DATE(fecha_entrada) <= DATE(?)
         AND tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
-    `).get(inicioAnio, finHoy);
-    const entradasTodo = db.prepare(`
+    `).get(t, o), r = e.prepare(`
       SELECT 
         COUNT(*) as num_entradas,
         COALESCE(SUM(cantidad_recibida), 0) as total_unidades,
@@ -1933,52 +1661,47 @@ ipcMain.handle("get-entradas-kpis", () => {
         COALESCE(SUM(cantidad_recibida * precio_unitario_base), 0) as valor_venta
       FROM entradas
       WHERE tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
-    `).get();
-    const productosNuevosMes = db.prepare(`
+    `).get(), s = e.prepare(`
       SELECT COUNT(DISTINCT folio_producto) as cantidad
       FROM entradas
       WHERE DATE(fecha_entrada) >= DATE(?) AND DATE(fecha_entrada) <= DATE(?)
         AND tipo_movimiento = 'Entrada Inicial'
-    `).get(inicioMes, finHoy);
-    const proveedoresActivosMes = db.prepare(`
+    `).get(a, o), d = e.prepare(`
       SELECT COUNT(DISTINCT p.proveedor) as cantidad
       FROM productos p
       INNER JOIN entradas e ON p.folio_producto = e.folio_producto
       WHERE DATE(e.fecha_entrada) >= DATE(?) AND DATE(e.fecha_entrada) <= DATE(?)
         AND e.tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
-    `).get(inicioMes, finHoy);
-    const totalProductos = db.prepare(`SELECT COUNT(DISTINCT folio_producto) as cantidad FROM entradas`).get();
-    const totalProveedores = db.prepare(`SELECT COUNT(DISTINCT proveedor) as cantidad FROM productos WHERE proveedor IS NOT NULL`).get();
+    `).get(a, o), p = e.prepare("SELECT COUNT(DISTINCT folio_producto) as cantidad FROM entradas").get(), _ = e.prepare("SELECT COUNT(DISTINCT proveedor) as cantidad FROM productos WHERE proveedor IS NOT NULL").get();
     return {
       mes: {
-        numEntradas: (entradasMes == null ? void 0 : entradasMes.num_entradas) || 0,
-        totalUnidades: (entradasMes == null ? void 0 : entradasMes.total_unidades) || 0,
-        inversionTotal: (entradasMes == null ? void 0 : entradasMes.inversion_total) || 0,
-        valorVenta: (entradasMes == null ? void 0 : entradasMes.valor_venta) || 0,
-        gananciaProyectada: ((entradasMes == null ? void 0 : entradasMes.valor_venta) || 0) - ((entradasMes == null ? void 0 : entradasMes.inversion_total) || 0)
+        numEntradas: (n == null ? void 0 : n.num_entradas) || 0,
+        totalUnidades: (n == null ? void 0 : n.total_unidades) || 0,
+        inversionTotal: (n == null ? void 0 : n.inversion_total) || 0,
+        valorVenta: (n == null ? void 0 : n.valor_venta) || 0,
+        gananciaProyectada: ((n == null ? void 0 : n.valor_venta) || 0) - ((n == null ? void 0 : n.inversion_total) || 0)
       },
       anio: {
-        numEntradas: (entradasAnio == null ? void 0 : entradasAnio.num_entradas) || 0,
-        totalUnidades: (entradasAnio == null ? void 0 : entradasAnio.total_unidades) || 0,
-        inversionTotal: (entradasAnio == null ? void 0 : entradasAnio.inversion_total) || 0,
-        valorVenta: (entradasAnio == null ? void 0 : entradasAnio.valor_venta) || 0,
-        gananciaProyectada: ((entradasAnio == null ? void 0 : entradasAnio.valor_venta) || 0) - ((entradasAnio == null ? void 0 : entradasAnio.inversion_total) || 0)
+        numEntradas: (i == null ? void 0 : i.num_entradas) || 0,
+        totalUnidades: (i == null ? void 0 : i.total_unidades) || 0,
+        inversionTotal: (i == null ? void 0 : i.inversion_total) || 0,
+        valorVenta: (i == null ? void 0 : i.valor_venta) || 0,
+        gananciaProyectada: ((i == null ? void 0 : i.valor_venta) || 0) - ((i == null ? void 0 : i.inversion_total) || 0)
       },
       todo: {
-        numEntradas: (entradasTodo == null ? void 0 : entradasTodo.num_entradas) || 0,
-        totalUnidades: (entradasTodo == null ? void 0 : entradasTodo.total_unidades) || 0,
-        inversionTotal: (entradasTodo == null ? void 0 : entradasTodo.inversion_total) || 0,
-        valorVenta: (entradasTodo == null ? void 0 : entradasTodo.valor_venta) || 0,
-        gananciaProyectada: ((entradasTodo == null ? void 0 : entradasTodo.valor_venta) || 0) - ((entradasTodo == null ? void 0 : entradasTodo.inversion_total) || 0)
+        numEntradas: (r == null ? void 0 : r.num_entradas) || 0,
+        totalUnidades: (r == null ? void 0 : r.total_unidades) || 0,
+        inversionTotal: (r == null ? void 0 : r.inversion_total) || 0,
+        valorVenta: (r == null ? void 0 : r.valor_venta) || 0,
+        gananciaProyectada: ((r == null ? void 0 : r.valor_venta) || 0) - ((r == null ? void 0 : r.inversion_total) || 0)
       },
-      productosNuevosMes: (productosNuevosMes == null ? void 0 : productosNuevosMes.cantidad) || 0,
-      proveedoresActivosMes: (proveedoresActivosMes == null ? void 0 : proveedoresActivosMes.cantidad) || 0,
-      totalProductos: (totalProductos == null ? void 0 : totalProductos.cantidad) || 0,
-      totalProveedores: (totalProveedores == null ? void 0 : totalProveedores.cantidad) || 0
+      productosNuevosMes: (s == null ? void 0 : s.cantidad) || 0,
+      proveedoresActivosMes: (d == null ? void 0 : d.cantidad) || 0,
+      totalProductos: (p == null ? void 0 : p.cantidad) || 0,
+      totalProveedores: (_ == null ? void 0 : _.cantidad) || 0
     };
-  } catch (error) {
-    console.error("Error al obtener KPIs de entradas:", error);
-    return {
+  } catch (c) {
+    return console.error("Error al obtener KPIs de entradas:", c), {
       mes: { numEntradas: 0, totalUnidades: 0, inversionTotal: 0, valorVenta: 0, gananciaProyectada: 0 },
       anio: { numEntradas: 0, totalUnidades: 0, inversionTotal: 0, valorVenta: 0, gananciaProyectada: 0 },
       todo: { numEntradas: 0, totalUnidades: 0, inversionTotal: 0, valorVenta: 0, gananciaProyectada: 0 },
@@ -1989,9 +1712,9 @@ ipcMain.handle("get-entradas-kpis", () => {
     };
   }
 });
-ipcMain.handle("get-entradas-por-categoria", () => {
+l.handle("get-entradas-por-categoria", () => {
   try {
-    const entradas = db.prepare(`
+    return e.prepare(`
       SELECT 
         p.categoria,
         COUNT(DISTINCT e.id_entrada) as num_entradas,
@@ -2004,15 +1727,13 @@ ipcMain.handle("get-entradas-por-categoria", () => {
       GROUP BY p.categoria
       ORDER BY inversion_total DESC
     `).all();
-    return entradas;
-  } catch (error) {
-    console.error("Error al obtener entradas por categoría:", error);
-    return [];
+  } catch (c) {
+    return console.error("Error al obtener entradas por categoría:", c), [];
   }
 });
-ipcMain.handle("get-entradas-recientes", (_event, limite = 20) => {
+l.handle("get-entradas-recientes", (c, a = 20) => {
   try {
-    const entradas = db.prepare(`
+    return e.prepare(`
       SELECT 
         e.id_entrada,
         e.fecha_entrada,
@@ -2032,19 +1753,15 @@ ipcMain.handle("get-entradas-recientes", (_event, limite = 20) => {
       WHERE e.tipo_movimiento IN ('Entrada Inicial', 'Reabastecimiento')
       ORDER BY e.fecha_entrada DESC, e.id_entrada DESC
       LIMIT ?
-    `).all(limite);
-    return entradas;
-  } catch (error) {
-    console.error("Error al obtener entradas recientes:", error);
-    return [];
+    `).all(a);
+  } catch (t) {
+    return console.error("Error al obtener entradas recientes:", t), [];
   }
 });
-ipcMain.handle("get-entradas-por-proveedor", () => {
+l.handle("get-entradas-por-proveedor", () => {
   try {
-    const hoy = /* @__PURE__ */ new Date();
-    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().split("T")[0];
-    const finHoy = hoy.toISOString().split("T")[0];
-    const proveedores = db.prepare(`
+    const c = /* @__PURE__ */ new Date(), a = new Date(c.getFullYear(), c.getMonth(), 1).toISOString().split("T")[0], t = c.toISOString().split("T")[0];
+    return e.prepare(`
       SELECT 
         p.proveedor,
         COUNT(DISTINCT e.id_entrada) as num_entradas,
@@ -2058,19 +1775,15 @@ ipcMain.handle("get-entradas-por-proveedor", () => {
         AND DATE(e.fecha_entrada) >= DATE(?) AND DATE(e.fecha_entrada) <= DATE(?)
       GROUP BY p.proveedor
       ORDER BY inversion_total DESC
-    `).all(inicioMes, finHoy);
-    return proveedores;
-  } catch (error) {
-    console.error("Error al obtener entradas por proveedor:", error);
-    return [];
+    `).all(a, t);
+  } catch (c) {
+    return console.error("Error al obtener entradas por proveedor:", c), [];
   }
 });
-ipcMain.handle("registrar-entrada-multiple-tallas", (_event, datos) => {
-  const { folio_producto, esNuevo, producto, tallas, responsable, observaciones } = datos;
-  const registrar = db.transaction(() => {
-    const fechaEntrada = (/* @__PURE__ */ new Date()).toISOString();
-    if (esNuevo && producto) {
-      const stmtProducto = db.prepare(`
+l.handle("registrar-entrada-multiple-tallas", (c, a) => {
+  const { folio_producto: t, esNuevo: o, producto: n, tallas: i, responsable: r, observaciones: s } = a, d = e.transaction(() => {
+    const p = (/* @__PURE__ */ new Date()).toISOString();
+    o && n && e.prepare(`
         INSERT INTO productos (
           folio_producto, nombre_producto, categoria, genero_destino,
           stock_actual, stock_minimo, proveedor, observaciones
@@ -2078,12 +1791,10 @@ ipcMain.handle("registrar-entrada-multiple-tallas", (_event, datos) => {
           @folio_producto, @nombre_producto, @categoria, @genero_destino,
           0, 5, @proveedor, @observaciones
         )
-      `);
-      stmtProducto.run(producto);
-    }
-    for (const t of tallas) {
-      if (t.cantidad <= 0) continue;
-      const stmtEntrada = db.prepare(`
+      `).run(n);
+    for (const _ of i) {
+      if (_.cantidad <= 0) continue;
+      e.prepare(`
         INSERT INTO entradas (
           fecha_entrada, folio_producto, cantidad_recibida, talla,
           costo_unitario_proveedor, precio_unitario_base,
@@ -2093,84 +1804,63 @@ ipcMain.handle("registrar-entrada-multiple-tallas", (_event, datos) => {
           @costo, @precio,
           @tipo, @responsable, @observaciones
         )
-      `);
-      stmtEntrada.run({
-        fecha: fechaEntrada,
-        folio: folio_producto,
-        cantidad: t.cantidad,
-        talla: t.talla,
-        costo: t.costo,
-        precio: t.precio,
-        tipo: esNuevo ? "Entrada Inicial" : "Reabastecimiento",
-        responsable: responsable || null,
-        observaciones: observaciones || null
-      });
-      db.prepare(`
+      `).run({
+        fecha: p,
+        folio: t,
+        cantidad: _.cantidad,
+        talla: _.talla,
+        costo: _.costo,
+        precio: _.precio,
+        tipo: o ? "Entrada Inicial" : "Reabastecimiento",
+        responsable: r || null,
+        observaciones: s || null
+      }), e.prepare(`
         UPDATE productos 
         SET stock_actual = stock_actual + @cantidad,
             fecha_ultima_actualizacion = CURRENT_TIMESTAMP
         WHERE folio_producto = @folio
-      `).run({ cantidad: t.cantidad, folio: folio_producto });
-      db.prepare(`
+      `).run({ cantidad: _.cantidad, folio: t }), e.prepare(`
         INSERT INTO tallas_producto (folio_producto, talla, cantidad)
         VALUES (@folio, @talla, @cantidad)
         ON CONFLICT(folio_producto, talla) DO UPDATE SET
           cantidad = cantidad + @cantidad,
           fecha_actualizacion = CURRENT_TIMESTAMP
-      `).run({ folio: folio_producto, talla: t.talla, cantidad: t.cantidad });
+      `).run({ folio: t, talla: _.talla, cantidad: _.cantidad });
     }
   });
   try {
-    registrar();
-    return { success: true };
-  } catch (error) {
-    console.error("Error al registrar entrada con múltiples tallas:", error);
-    throw error;
+    return d(), { success: !0 };
+  } catch (p) {
+    throw console.error("Error al registrar entrada con múltiples tallas:", p), p;
   }
 });
-ipcMain.handle("get-ventas-kpis-hoy", () => {
+l.handle("get-ventas-kpis-hoy", () => {
   try {
-    const hoy = /* @__PURE__ */ new Date();
-    const year = hoy.getFullYear();
-    const month = String(hoy.getMonth() + 1).padStart(2, "0");
-    const day = String(hoy.getDate()).padStart(2, "0");
-    const fechaHoy = `${year}-${month}-${day}`;
-    const inicioHoy = fechaHoy + " 00:00:00";
-    const finHoy = fechaHoy + " 23:59:59";
-    const resultVentas = db.prepare(`
+    const c = /* @__PURE__ */ new Date(), a = c.getFullYear(), t = String(c.getMonth() + 1).padStart(2, "0"), o = String(c.getDate()).padStart(2, "0"), n = `${a}-${t}-${o}`, i = n + " 00:00:00", r = n + " 23:59:59", s = e.prepare(`
       SELECT COUNT(*) as num_ventas
       FROM ventas
       WHERE fecha_venta >= ? AND fecha_venta <= ?
-    `).get(inicioHoy, finHoy);
-    const ventasHoy = (resultVentas == null ? void 0 : resultVentas.num_ventas) || 0;
-    const resultCobrado = db.prepare(`
+    `).get(i, r), d = (s == null ? void 0 : s.num_ventas) || 0, p = e.prepare(`
       SELECT COALESCE(SUM(
         (precio_unitario_real - COALESCE(descuento_aplicado, 0)) * cantidad_vendida
       ), 0) as total
       FROM ventas
       WHERE tipo_salida = 'Venta'
         AND fecha_venta >= ? AND fecha_venta <= ?
-    `).get(inicioHoy, finHoy);
-    const cobradoVentas = (resultCobrado == null ? void 0 : resultCobrado.total) || 0;
-    const resultAbonos = db.prepare(`
+    `).get(i, r), _ = (p == null ? void 0 : p.total) || 0, v = e.prepare(`
       SELECT COALESCE(SUM(monto), 0) as total
       FROM movimientos_cliente
       WHERE lower(tipo_movimiento) = 'abono'
         AND fecha >= ? AND fecha <= ?
-    `).get(inicioHoy, finHoy);
-    const cobradoAbonos = (resultAbonos == null ? void 0 : resultAbonos.total) || 0;
-    const totalCobrado = cobradoVentas + cobradoAbonos;
-    const ticketPromedio = ventasHoy > 0 ? totalCobrado / ventasHoy : 0;
-    console.log(`[KPIs] Fecha: ${fechaHoy}, Ventas: ${ventasHoy}, Cobrado: ${cobradoVentas}, Abonos: ${cobradoAbonos}, Total: ${totalCobrado}`);
-    return {
-      ventasHoy,
-      totalCobrado,
+    `).get(i, r), u = (v == null ? void 0 : v.total) || 0, E = _ + u, m = d > 0 ? E / d : 0;
+    return console.log(`[KPIs] Fecha: ${n}, Ventas: ${d}, Cobrado: ${_}, Abonos: ${u}, Total: ${E}`), {
+      ventasHoy: d,
+      totalCobrado: E,
       pendientesHoy: 0,
-      ticketPromedio
+      ticketPromedio: m
     };
-  } catch (error) {
-    console.error("Error al obtener KPIs de ventas:", error);
-    return {
+  } catch (c) {
+    return console.error("Error al obtener KPIs de ventas:", c), {
       ventasHoy: 0,
       totalCobrado: 0,
       pendientesHoy: 0,
@@ -2178,9 +1868,9 @@ ipcMain.handle("get-ventas-kpis-hoy", () => {
     };
   }
 });
-ipcMain.handle("get-ventas-recientes", (_event, limite = 15) => {
+l.handle("get-ventas-recientes", (c, a = 15) => {
   try {
-    const ventas = db.prepare(`
+    return e.prepare(`
       SELECT 
         v.id_venta,
         v.fecha_venta,
@@ -2198,47 +1888,34 @@ ipcMain.handle("get-ventas-recientes", (_event, limite = 15) => {
       LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
       ORDER BY v.fecha_venta DESC
       LIMIT ?
-    `).all(limite);
-    return ventas.map((v) => ({
-      ...v,
-      total: (v.precio_unitario_real - (v.descuento_aplicado || 0)) * v.cantidad_vendida
+    `).all(a).map((o) => ({
+      ...o,
+      total: (o.precio_unitario_real - (o.descuento_aplicado || 0)) * o.cantidad_vendida
     }));
-  } catch (error) {
-    console.error("Error al obtener ventas recientes:", error);
-    return [];
+  } catch (t) {
+    return console.error("Error al obtener ventas recientes:", t), [];
   }
 });
-let ventanaPrincipal;
-function crearVentana() {
-  ventanaPrincipal = new BrowserWindow({
-    icon: path.join(VITE_PUBLIC_DIR, "electron-vite.svg"),
+let D;
+function P() {
+  D = new U({
+    icon: A.join(Y, "electron-vite.svg"),
     webPreferences: {
-      preload: path.join(__dirname$1, "preload.mjs")
+      preload: A.join(F, "preload.mjs")
     }
-  });
-  ventanaPrincipal.webContents.on("did-finish-load", () => {
-    ventanaPrincipal == null ? void 0 : ventanaPrincipal.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString("es-ES"));
-  });
-  if (VITE_DEV_SERVER_URL) {
-    ventanaPrincipal.loadURL(VITE_DEV_SERVER_URL);
-  } else {
-    ventanaPrincipal.loadFile(path.join(RENDERER_DIST, "index.html"));
-  }
+  }), D.webContents.on("did-finish-load", () => {
+    D == null || D.webContents.send("main-process-message", (/* @__PURE__ */ new Date()).toLocaleString("es-ES"));
+  }), g ? D.loadURL(g) : D.loadFile(A.join(H, "index.html"));
 }
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-    ventanaPrincipal = null;
-  }
+h.on("window-all-closed", () => {
+  process.platform !== "darwin" && (h.quit(), D = null);
 });
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    crearVentana();
-  }
+h.on("activate", () => {
+  U.getAllWindows().length === 0 && P();
 });
-app.whenReady().then(crearVentana);
+h.whenReady().then(P);
 export {
-  MAIN_DIST,
-  RENDERER_DIST,
-  VITE_DEV_SERVER_URL
+  K as MAIN_DIST,
+  H as RENDERER_DIST,
+  g as VITE_DEV_SERVER_URL
 };
