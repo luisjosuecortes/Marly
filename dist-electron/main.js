@@ -1450,6 +1450,193 @@ ipcMain.handle("get-ventas-comparativas", (_event, params) => {
   }
   return resultados;
 });
+ipcMain.handle("get-ventas-productos-comparativas", (_event, params) => {
+  const { productos, tipo } = params;
+  const resultados = {};
+  const hoy = /* @__PURE__ */ new Date();
+  const year = hoy.getFullYear();
+  const month = String(hoy.getMonth() + 1).padStart(2, "0");
+  let dateStart = "";
+  let dateEnd = "";
+  let xLabels = [];
+  if (tipo === "mes") {
+    const daysInMonth = new Date(year, hoy.getMonth() + 1, 0).getDate();
+    dateStart = `${year}-${month}-01`;
+    dateEnd = `${year}-${month}-${daysInMonth}`;
+    xLabels = Array.from({ length: 31 }, (_, i) => i + 1);
+  } else if (tipo === "semana") {
+    const dayOfWeek = hoy.getDay() || 7;
+    const monday = new Date(hoy);
+    monday.setDate(hoy.getDate() - dayOfWeek + 1);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    dateStart = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+    dateEnd = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, "0")}-${String(sunday.getDate()).padStart(2, "0")}`;
+    xLabels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+  } else if (tipo === "anio") {
+    dateStart = `${year}-01-01`;
+    dateEnd = `${year}-12-31`;
+    xLabels = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  }
+  for (const folio of productos) {
+    const prod = db.prepare("SELECT nombre_producto FROM productos WHERE folio_producto = ?").get(folio);
+    const nombre = (prod == null ? void 0 : prod.nombre_producto) || folio;
+    let puntos = [];
+    if (tipo === "mes") {
+      const ventas = db.prepare(`
+        SELECT 
+          CAST(strftime('%d', fecha_venta) AS INTEGER) as dia,
+          COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as ganancia
+        FROM ventas
+        WHERE folio_producto = ? AND DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
+        GROUP BY strftime('%d', fecha_venta)
+      `).all(folio, dateStart, dateEnd);
+      for (let d = 1; d <= 31; d++) {
+        const found = ventas.find((v) => v.dia === d);
+        puntos.push({ x: d, y: found ? found.ganancia : 0 });
+      }
+    } else if (tipo === "semana") {
+      const ventas = db.prepare(`
+        SELECT 
+          CAST(strftime('%w', fecha_venta) AS INTEGER) as dia_semana,
+          COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as ganancia
+        FROM ventas
+        WHERE folio_producto = ? AND DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
+        GROUP BY strftime('%w', fecha_venta)
+      `).all(folio, dateStart, dateEnd);
+      for (let d = 0; d < 7; d++) {
+        const sqlDow = d === 6 ? 0 : d + 1;
+        const found = ventas.find((v) => v.dia_semana === sqlDow);
+        puntos.push({ x: xLabels[d], y: found ? found.ganancia : 0 });
+      }
+    } else if (tipo === "anio") {
+      const ventas = db.prepare(`
+        SELECT 
+          CAST(strftime('%m', fecha_venta) AS INTEGER) as mes,
+          COALESCE(SUM(cantidad_vendida * precio_unitario_real - COALESCE(descuento_aplicado, 0)), 0) as ganancia
+        FROM ventas
+        WHERE folio_producto = ? AND DATE(fecha_venta) >= DATE(?) AND DATE(fecha_venta) <= DATE(?)
+        GROUP BY strftime('%m', fecha_venta)
+      `).all(folio, dateStart, dateEnd);
+      for (let m = 1; m <= 12; m++) {
+        const found = ventas.find((v) => v.mes === m);
+        puntos.push({ x: xLabels[m - 1], y: found ? found.ganancia : 0 });
+      }
+    }
+    const total = puntos.reduce((sum, p) => sum + p.y, 0);
+    resultados[folio] = { nombre, puntos, total };
+  }
+  return resultados;
+});
+ipcMain.handle("get-top-productos-vendidos", (_event, limit = 5) => {
+  const productos = db.prepare(`
+    SELECT 
+      v.folio_producto,
+      p.nombre_producto,
+      SUM(v.cantidad_vendida) as unidades_vendidas,
+      SUM(v.cantidad_vendida * v.precio_unitario_real - COALESCE(v.descuento_aplicado, 0)) as total_vendido
+    FROM ventas v
+    LEFT JOIN productos p ON v.folio_producto = p.folio_producto
+    GROUP BY v.folio_producto
+    ORDER BY total_vendido DESC
+    LIMIT ?
+  `).all(limit);
+  return productos;
+});
+ipcMain.handle("get-ventas-proveedores-comparativas", (_event, params) => {
+  const { proveedores, tipo } = params;
+  const resultados = {};
+  const hoy = /* @__PURE__ */ new Date();
+  const year = hoy.getFullYear();
+  const month = String(hoy.getMonth() + 1).padStart(2, "0");
+  let dateStart = "";
+  let dateEnd = "";
+  let xLabels = [];
+  if (tipo === "mes") {
+    const daysInMonth = new Date(year, hoy.getMonth() + 1, 0).getDate();
+    dateStart = `${year}-${month}-01`;
+    dateEnd = `${year}-${month}-${daysInMonth}`;
+    xLabels = Array.from({ length: 31 }, (_, i) => i + 1);
+  } else if (tipo === "semana") {
+    const dayOfWeek = hoy.getDay() || 7;
+    const monday = new Date(hoy);
+    monday.setDate(hoy.getDate() - dayOfWeek + 1);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    dateStart = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+    dateEnd = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, "0")}-${String(sunday.getDate()).padStart(2, "0")}`;
+    xLabels = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+  } else if (tipo === "anio") {
+    dateStart = `${year}-01-01`;
+    dateEnd = `${year}-12-31`;
+    xLabels = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  }
+  for (const proveedor of proveedores) {
+    let puntos = [];
+    if (tipo === "mes") {
+      const ventas = db.prepare(`
+        SELECT 
+          CAST(strftime('%d', v.fecha_venta) AS INTEGER) as dia,
+          COALESCE(SUM(v.cantidad_vendida * v.precio_unitario_real - COALESCE(v.descuento_aplicado, 0)), 0) as ganancia
+        FROM ventas v
+        JOIN productos p ON v.folio_producto = p.folio_producto
+        WHERE p.proveedor = ? AND DATE(v.fecha_venta) >= DATE(?) AND DATE(v.fecha_venta) <= DATE(?)
+        GROUP BY strftime('%d', v.fecha_venta)
+      `).all(proveedor, dateStart, dateEnd);
+      for (let d = 1; d <= 31; d++) {
+        const found = ventas.find((v) => v.dia === d);
+        puntos.push({ x: d, y: found ? found.ganancia : 0 });
+      }
+    } else if (tipo === "semana") {
+      const ventas = db.prepare(`
+        SELECT 
+          CAST(strftime('%w', v.fecha_venta) AS INTEGER) as dia_semana,
+          COALESCE(SUM(v.cantidad_vendida * v.precio_unitario_real - COALESCE(v.descuento_aplicado, 0)), 0) as ganancia
+        FROM ventas v
+        JOIN productos p ON v.folio_producto = p.folio_producto
+        WHERE p.proveedor = ? AND DATE(v.fecha_venta) >= DATE(?) AND DATE(v.fecha_venta) <= DATE(?)
+        GROUP BY strftime('%w', v.fecha_venta)
+      `).all(proveedor, dateStart, dateEnd);
+      for (let d = 0; d < 7; d++) {
+        const sqlDow = d === 6 ? 0 : d + 1;
+        const found = ventas.find((v) => v.dia_semana === sqlDow);
+        puntos.push({ x: xLabels[d], y: found ? found.ganancia : 0 });
+      }
+    } else if (tipo === "anio") {
+      const ventas = db.prepare(`
+        SELECT 
+          CAST(strftime('%m', v.fecha_venta) AS INTEGER) as mes,
+          COALESCE(SUM(v.cantidad_vendida * v.precio_unitario_real - COALESCE(v.descuento_aplicado, 0)), 0) as ganancia
+        FROM ventas v
+        JOIN productos p ON v.folio_producto = p.folio_producto
+        WHERE p.proveedor = ? AND DATE(v.fecha_venta) >= DATE(?) AND DATE(v.fecha_venta) <= DATE(?)
+        GROUP BY strftime('%m', v.fecha_venta)
+      `).all(proveedor, dateStart, dateEnd);
+      for (let m = 1; m <= 12; m++) {
+        const found = ventas.find((v) => v.mes === m);
+        puntos.push({ x: xLabels[m - 1], y: found ? found.ganancia : 0 });
+      }
+    }
+    const total = puntos.reduce((sum, p) => sum + p.y, 0);
+    resultados[proveedor] = { puntos, total };
+  }
+  return resultados;
+});
+ipcMain.handle("get-top-proveedores-vendidos", (_event, limit = 5) => {
+  const proveedores = db.prepare(`
+    SELECT 
+      p.proveedor,
+      SUM(v.cantidad_vendida) as unidades_vendidas,
+      SUM(v.cantidad_vendida * v.precio_unitario_real - COALESCE(v.descuento_aplicado, 0)) as total_vendido
+    FROM ventas v
+    JOIN productos p ON v.folio_producto = p.folio_producto
+    WHERE p.proveedor IS NOT NULL AND p.proveedor != ''
+    GROUP BY p.proveedor
+    ORDER BY total_vendido DESC
+    LIMIT ?
+  `).all(limit);
+  return proveedores;
+});
 ipcMain.handle("get-clientes-con-saldo", () => {
   const clientes = db.prepare(`
     SELECT 
@@ -1534,14 +1721,13 @@ ipcMain.handle("get-productos-bajo-stock", () => {
   try {
     const productos = db.prepare(`
       SELECT 
-        folio_producto,
-        nombre_producto,
         categoria,
-        stock_actual,
-        stock_minimo,
-        (SELECT talla FROM tallas_producto WHERE folio_producto = productos.folio_producto ORDER BY cantidad DESC LIMIT 1) as talla_principal
+        SUM(stock_actual) as stock_actual,
+        SUM(stock_minimo) as stock_minimo,
+        COUNT(*) as total_productos
       FROM productos
-      WHERE stock_actual <= stock_minimo
+      GROUP BY categoria
+      HAVING SUM(stock_actual) <= SUM(stock_minimo)
       ORDER BY stock_actual ASC
     `).all();
     return productos;
@@ -1907,6 +2093,86 @@ ipcMain.handle("registrar-entrada-multiple-tallas", (_event, datos) => {
   } catch (error) {
     console.error("Error al registrar entrada con múltiples tallas:", error);
     throw error;
+  }
+});
+ipcMain.handle("get-ventas-kpis-hoy", () => {
+  try {
+    const hoy = /* @__PURE__ */ new Date();
+    const year = hoy.getFullYear();
+    const month = String(hoy.getMonth() + 1).padStart(2, "0");
+    const day = String(hoy.getDate()).padStart(2, "0");
+    const fechaHoy = `${year}-${month}-${day}`;
+    const inicioHoy = fechaHoy + " 00:00:00";
+    const finHoy = fechaHoy + " 23:59:59";
+    const resultVentas = db.prepare(`
+      SELECT COUNT(*) as num_ventas
+      FROM ventas
+      WHERE fecha_venta >= ? AND fecha_venta <= ?
+    `).get(inicioHoy, finHoy);
+    const ventasHoy = (resultVentas == null ? void 0 : resultVentas.num_ventas) || 0;
+    const resultCobrado = db.prepare(`
+      SELECT COALESCE(SUM(
+        (precio_unitario_real - COALESCE(descuento_aplicado, 0)) * cantidad_vendida
+      ), 0) as total
+      FROM ventas
+      WHERE tipo_salida = 'Venta'
+        AND fecha_venta >= ? AND fecha_venta <= ?
+    `).get(inicioHoy, finHoy);
+    const cobradoVentas = (resultCobrado == null ? void 0 : resultCobrado.total) || 0;
+    const resultAbonos = db.prepare(`
+      SELECT COALESCE(SUM(monto), 0) as total
+      FROM movimientos_cliente
+      WHERE lower(tipo_movimiento) = 'abono'
+        AND fecha >= ? AND fecha <= ?
+    `).get(inicioHoy, finHoy);
+    const cobradoAbonos = (resultAbonos == null ? void 0 : resultAbonos.total) || 0;
+    const totalCobrado = cobradoVentas + cobradoAbonos;
+    const ticketPromedio = ventasHoy > 0 ? totalCobrado / ventasHoy : 0;
+    console.log(`[KPIs] Fecha: ${fechaHoy}, Ventas: ${ventasHoy}, Cobrado: ${cobradoVentas}, Abonos: ${cobradoAbonos}, Total: ${totalCobrado}`);
+    return {
+      ventasHoy,
+      totalCobrado,
+      pendientesHoy: 0,
+      ticketPromedio
+    };
+  } catch (error) {
+    console.error("Error al obtener KPIs de ventas:", error);
+    return {
+      ventasHoy: 0,
+      totalCobrado: 0,
+      pendientesHoy: 0,
+      ticketPromedio: 0
+    };
+  }
+});
+ipcMain.handle("get-ventas-recientes", (_event, limite = 15) => {
+  try {
+    const ventas = db.prepare(`
+      SELECT 
+        v.id_venta,
+        v.fecha_venta,
+        v.folio_producto,
+        v.cantidad_vendida,
+        v.talla,
+        v.precio_unitario_real,
+        v.descuento_aplicado,
+        v.tipo_salida,
+        p.nombre_producto,
+        p.categoria,
+        c.nombre_completo as cliente
+      FROM ventas v
+      LEFT JOIN productos p ON v.folio_producto = p.folio_producto
+      LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
+      ORDER BY v.fecha_venta DESC
+      LIMIT ?
+    `).all(limite);
+    return ventas.map((v) => ({
+      ...v,
+      total: (v.precio_unitario_real - (v.descuento_aplicado || 0)) * v.cantidad_vendida
+    }));
+  } catch (error) {
+    console.error("Error al obtener ventas recientes:", error);
+    return [];
   }
 });
 let ventanaPrincipal;

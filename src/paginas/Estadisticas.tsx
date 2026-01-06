@@ -90,6 +90,21 @@ export function Estadisticas() {
   const [datosComparacion, setDatosComparacion] = useState<Record<string, { puntos: Array<{ x: number | string, y: number }>, total: number }>>({})
   const [cargandoComparacion, setCargandoComparacion] = useState(false)
 
+  // Product comparison state
+  const [productosDisponibles, setProductosDisponibles] = useState<{ folio: string, nombre: string }[]>([])
+  const [busquedaProducto, setBusquedaProducto] = useState('')
+  const [productosSeleccionados, setProductosSeleccionados] = useState<string[]>([])
+  const [modoComparacionProducto, setModoComparacionProducto] = useState<'mes' | 'semana' | 'anio'>('mes')
+  const [datosComparacionProductos, setDatosComparacionProductos] = useState<Record<string, { nombre: string, puntos: Array<{ x: number | string, y: number }>, total: number }>>({})
+  const [cargandoComparacionProductos, setCargandoComparacionProductos] = useState(false)
+  const [mostrarResultados, setMostrarResultados] = useState(false)
+
+  // Supplier comparison state
+  const [proveedoresSeleccionados, setProveedoresSeleccionados] = useState<string[]>([])
+  const [modoComparacionProveedor, setModoComparacionProveedor] = useState<'mes' | 'semana' | 'anio'>('mes')
+  const [datosComparacionProveedores, setDatosComparacionProveedores] = useState<Record<string, { puntos: Array<{ x: number | string, y: number }>, total: number }>>({})
+  const [cargandoComparacionProveedores, setCargandoComparacionProveedores] = useState(false)
+
   const { fechaInicio, fechaFin, agrupacionActual } = useMemo(() => {
     const hoy = new Date()
     let inicio: Date
@@ -217,6 +232,97 @@ export function Estadisticas() {
   useEffect(() => {
     cargarDatosComparacion()
   }, [modoComparacion, periodosSeleccionados])
+
+  // Load products for search
+  const cargarProductosParaComparar = async () => {
+    try {
+      const productos = await window.ipcRenderer.getProductos()
+      setProductosDisponibles(productos.map((p: any) => ({
+        folio: p.folio_producto,
+        nombre: p.nombre_producto || p.folio_producto
+      })))
+    } catch (error) {
+      console.error('Error cargando productos:', error)
+    }
+  }
+
+  useEffect(() => {
+    cargarProductosParaComparar()
+    cargarTopProductos()
+    cargarTopProveedores()
+  }, [])
+
+  // Load top 5 products as default selection
+  const cargarTopProductos = async () => {
+    try {
+      const topProds = await window.ipcRenderer.getTopProductosVendidos(5)
+      if (topProds.length > 0) {
+        setProductosSeleccionados(topProds.map((p: any) => p.folio_producto))
+      }
+    } catch (error) {
+      console.error('Error cargando top productos:', error)
+    }
+  }
+
+  // Load top 5 suppliers
+  const cargarTopProveedores = async () => {
+    try {
+      const topProvs = await window.ipcRenderer.getTopProveedoresVendidos(5)
+      if (topProvs.length > 0) {
+        setProveedoresSeleccionados(topProvs.map((p: any) => p.proveedor))
+      }
+    } catch (error) {
+      console.error('Error cargando top proveedores:', error)
+    }
+  }
+
+  // Load product comparison data
+  const cargarDatosComparacionProductos = async () => {
+    if (productosSeleccionados.length === 0) {
+      setDatosComparacionProductos({})
+      return
+    }
+    setCargandoComparacionProductos(true)
+    try {
+      const datos = await window.ipcRenderer.getVentasProductosComparativas({
+        productos: productosSeleccionados,
+        tipo: modoComparacionProducto
+      })
+      setDatosComparacionProductos(datos)
+    } catch (error) {
+      console.error('Error cargando comparación productos:', error)
+    } finally {
+      setCargandoComparacionProductos(false)
+    }
+  }
+
+  useEffect(() => {
+    cargarDatosComparacionProductos()
+  }, [modoComparacionProducto, productosSeleccionados])
+
+  // Load supplier comparison data
+  const cargarDatosComparacionProveedores = async () => {
+    if (proveedoresSeleccionados.length === 0) {
+      setDatosComparacionProveedores({})
+      return
+    }
+    setCargandoComparacionProveedores(true)
+    try {
+      const datos = await window.ipcRenderer.getVentasProveedoresComparativas({
+        proveedores: proveedoresSeleccionados,
+        tipo: modoComparacionProveedor
+      })
+      setDatosComparacionProveedores(datos)
+    } catch (error) {
+      console.error('Error cargando comparación proveedores:', error)
+    } finally {
+      setCargandoComparacionProveedores(false)
+    }
+  }
+
+  useEffect(() => {
+    cargarDatosComparacionProveedores()
+  }, [modoComparacionProveedor, proveedoresSeleccionados])
 
   // Transformar etiquetas del período según el tipo de agrupación
   const transformarEtiqueta = (periodo: string): string => {
@@ -795,6 +901,267 @@ export function Estadisticas() {
           {periodosSeleccionados.length === 0 && !cargandoComparacion && (
             <div className="sin-datos-comparacion">
               Selecciona períodos para comparar
+            </div>
+          )}
+        </div>
+
+        {/* Product Comparison Chart Section */}
+        <div className="seccion-comparacion seccion-comparacion-productos">
+          <div className="seccion-header">
+            <h2 className="seccion-titulo"><Package size={20} /> Comparar Ventas por Producto</h2>
+            <div className="modo-comparacion">
+              <button
+                className={`btn-modo ${modoComparacionProducto === 'semana' ? 'activo' : ''}`}
+                onClick={() => setModoComparacionProducto('semana')}
+              >
+                Esta Semana
+              </button>
+              <button
+                className={`btn-modo ${modoComparacionProducto === 'mes' ? 'activo' : ''}`}
+                onClick={() => setModoComparacionProducto('mes')}
+              >
+                Este Mes
+              </button>
+              <button
+                className={`btn-modo ${modoComparacionProducto === 'anio' ? 'activo' : ''}`}
+                onClick={() => setModoComparacionProducto('anio')}
+              >
+                Este Año
+              </button>
+            </div>
+          </div>
+
+          {/* Product Search */}
+          <div className="selector-productos">
+            <span className="selector-label">Buscar y seleccionar productos (máx. 5):</span>
+            <div className="busqueda-producto-container">
+              <input
+                type="text"
+                placeholder="Buscar por folio o nombre..."
+                value={busquedaProducto}
+                onChange={(e) => {
+                  setBusquedaProducto(e.target.value)
+                  setMostrarResultados(true)
+                }}
+                onFocus={() => setMostrarResultados(true)}
+                className="input-busqueda-producto"
+              />
+              {mostrarResultados && busquedaProducto.trim() && (
+                <div className="resultados-productos">
+                  {productosDisponibles
+                    .filter(p =>
+                      (p.folio.toLowerCase().includes(busquedaProducto.toLowerCase()) ||
+                        p.nombre.toLowerCase().includes(busquedaProducto.toLowerCase())) &&
+                      !productosSeleccionados.includes(p.folio)
+                    )
+                    .slice(0, 8)
+                    .map(p => (
+                      <div
+                        key={p.folio}
+                        className="producto-resultado"
+                        onClick={() => {
+                          if (productosSeleccionados.length < 5) {
+                            setProductosSeleccionados([...productosSeleccionados, p.folio])
+                          }
+                          setBusquedaProducto('')
+                          setMostrarResultados(false)
+                        }}
+                      >
+                        <span className="resultado-folio">{p.folio}</span>
+                        <span className="resultado-nombre">{p.nombre}</span>
+                      </div>
+                    ))}
+                  {productosDisponibles.filter(p =>
+                    (p.folio.toLowerCase().includes(busquedaProducto.toLowerCase()) ||
+                      p.nombre.toLowerCase().includes(busquedaProducto.toLowerCase())) &&
+                    !productosSeleccionados.includes(p.folio)
+                  ).length === 0 && (
+                      <div className="sin-resultados">No se encontraron productos</div>
+                    )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Selected Products Chips */}
+          {productosSeleccionados.length > 0 && (
+            <div className="productos-seleccionados">
+              {productosSeleccionados.map(folio => {
+                const prod = productosDisponibles.find(p => p.folio === folio)
+                return (
+                  <div key={folio} className="producto-chip">
+                    <span>{prod?.nombre || folio}</span>
+                    <button
+                      onClick={() => setProductosSeleccionados(productosSeleccionados.filter(f => f !== folio))}
+                      className="chip-remove"
+                    >×</button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {cargandoComparacionProductos && <div className="cargando-comparacion">Cargando datos...</div>}
+
+          {Object.keys(datosComparacionProductos).length > 0 && (
+            <div className="grafico-comparacion">
+              <Plot
+                data={Object.entries(datosComparacionProductos).map(([_folio, data]) => ({
+                  x: data.puntos.map(p => p.x),
+                  y: data.puntos.map(p => p.y),
+                  type: 'scatter' as const,
+                  mode: 'lines+markers' as const,
+                  name: data.nombre,
+                  line: { width: 2 },
+                  marker: { size: 6 }
+                }))}
+                layout={{
+                  ...layoutBase,
+                  title: {
+                    text: modoComparacionProducto === 'semana'
+                      ? 'Ganancias por Día de la Semana'
+                      : modoComparacionProducto === 'mes'
+                        ? 'Ganancias por Día del Mes'
+                        : 'Ganancias por Mes del Año',
+                    font: { color: '#f8fafc' }
+                  },
+                  xaxis: {
+                    ...layoutBase.xaxis,
+                    title: { text: modoComparacionProducto === 'anio' ? 'Mes' : 'Día', font: { color: '#94a3b8' } }
+                  },
+                  yaxis: { ...layoutBase.yaxis, title: { text: 'Ganancias ($)', font: { color: '#94a3b8' } } },
+                  showlegend: true,
+                  legend: {
+                    orientation: 'h' as const,
+                    y: -0.2,
+                    font: { color: '#94a3b8' }
+                  }
+                }}
+                config={{ responsive: true, displayModeBar: false }}
+                style={{ width: '100%', height: '400px' }}
+              />
+
+              {/* Summary */}
+              <div className="resumen-comparacion">
+                {Object.entries(datosComparacionProductos)
+                  .sort((a, b) => b[1].total - a[1].total)
+                  .map(([folio, data], index) => (
+                    <div key={folio} className={`resumen-item ${index === 0 ? 'mejor' : ''}`}>
+                      <span className="resumen-periodo">{data.nombre}</span>
+                      <span className="resumen-total">{formatearMoneda(data.total)}</span>
+                      {index === 0 && <span className="badge-mejor">Mejor</span>}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {productosSeleccionados.length === 0 && !cargandoComparacionProductos && (
+            <div className="sin-datos-comparacion">
+              Busca y selecciona productos para comparar
+            </div>
+          )}
+        </div>
+
+        {/* Supplier Comparison Chart Section */}
+        <div className="seccion-comparacion seccion-comparacion-proveedores">
+          <div className="seccion-header">
+            <h2 className="seccion-titulo"><Users size={20} /> Comparar Ventas por Proveedor</h2>
+            <div className="modo-comparacion">
+              <button
+                className={`btn-modo ${modoComparacionProveedor === 'semana' ? 'activo' : ''}`}
+                onClick={() => setModoComparacionProveedor('semana')}
+              >
+                Esta Semana
+              </button>
+              <button
+                className={`btn-modo ${modoComparacionProveedor === 'mes' ? 'activo' : ''}`}
+                onClick={() => setModoComparacionProveedor('mes')}
+              >
+                Este Mes
+              </button>
+              <button
+                className={`btn-modo ${modoComparacionProveedor === 'anio' ? 'activo' : ''}`}
+                onClick={() => setModoComparacionProveedor('anio')}
+              >
+                Este Año
+              </button>
+            </div>
+          </div>
+
+          {/* Selected Suppliers Chips */}
+          {proveedoresSeleccionados.length > 0 && (
+            <div className="productos-seleccionados" style={{ marginTop: '1rem' }}>
+              {proveedoresSeleccionados.map(prov => (
+                <div key={prov} className="producto-chip">
+                  <span>{prov}</span>
+                  <button
+                    onClick={() => setProveedoresSeleccionados(proveedoresSeleccionados.filter(p => p !== prov))}
+                    className="chip-remove"
+                  >×</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {cargandoComparacionProveedores && <div className="cargando-comparacion">Cargando datos...</div>}
+
+          {Object.keys(datosComparacionProveedores).length > 0 && (
+            <div className="grafico-comparacion">
+              <Plot
+                data={Object.entries(datosComparacionProveedores).map(([proveedor, data]) => ({
+                  x: data.puntos.map(p => p.x),
+                  y: data.puntos.map(p => p.y),
+                  type: 'scatter' as const,
+                  mode: 'lines+markers' as const,
+                  name: proveedor,
+                  line: { width: 2 },
+                  marker: { size: 6 }
+                }))}
+                layout={{
+                  ...layoutBase,
+                  title: {
+                    text: modoComparacionProveedor === 'semana'
+                      ? 'Ganancias por Día de la Semana'
+                      : modoComparacionProveedor === 'mes'
+                        ? 'Ganancias por Día del Mes'
+                        : 'Ganancias por Mes del Año',
+                    font: { color: '#f8fafc' }
+                  },
+                  xaxis: {
+                    ...layoutBase.xaxis,
+                    title: { text: modoComparacionProveedor === 'anio' ? 'Mes' : 'Día', font: { color: '#94a3b8' } }
+                  },
+                  yaxis: { ...layoutBase.yaxis, title: { text: 'Ganancias ($)', font: { color: '#94a3b8' } } },
+                  showlegend: true,
+                  legend: {
+                    orientation: 'h' as const,
+                    y: -0.2,
+                    font: { color: '#94a3b8' }
+                  }
+                }}
+                config={{ responsive: true, displayModeBar: false }}
+                style={{ width: '100%', height: '400px' }}
+              />
+
+              {/* Summary */}
+              <div className="resumen-comparacion">
+                {Object.entries(datosComparacionProveedores)
+                  .sort((a, b) => b[1].total - a[1].total)
+                  .map(([proveedor, data], index) => (
+                    <div key={proveedor} className={`resumen-item ${index === 0 ? 'mejor' : ''}`}>
+                      <span className="resumen-periodo">{proveedor}</span>
+                      <span className="resumen-total">{formatearMoneda(data.total)}</span>
+                      {index === 0 && <span className="badge-mejor">Mejor</span>}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {proveedoresSeleccionados.length === 0 && !cargandoComparacionProveedores && (
+            <div className="sin-datos-comparacion">
+              No hay proveedores seleccionados
             </div>
           )}
         </div>

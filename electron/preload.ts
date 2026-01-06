@@ -54,7 +54,13 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   getProductosMasVendidos: (filtro?: { fechaInicio?: string, fechaFin?: string, limite?: number }) => ipcRenderer.invoke('get-productos-mas-vendidos', filtro || {}),
   getVentasPorCategoria: (filtro?: { fechaInicio?: string, fechaFin?: string }) => ipcRenderer.invoke('get-ventas-por-categoria', filtro || {}),
   getVentasPorTipo: (filtro?: { fechaInicio?: string, fechaFin?: string }) => ipcRenderer.invoke('get-ventas-por-tipo', filtro || {}),
+  getVentasKpisHoy: () => ipcRenderer.invoke('get-ventas-kpis-hoy'),
+  getVentasRecientes: (limite?: number) => ipcRenderer.invoke('get-ventas-recientes', limite || 15),
   getVentasComparativas: (params: { tipo: 'mes' | 'semana' | 'anio', periodos: string[] }) => ipcRenderer.invoke('get-ventas-comparativas', params),
+  getVentasProductosComparativas: (params: { productos: string[], tipo: 'mes' | 'semana' | 'anio' }) => ipcRenderer.invoke('get-ventas-productos-comparativas', params),
+  getTopProductosVendidos: (limit?: number) => ipcRenderer.invoke('get-top-productos-vendidos', limit || 5),
+  getVentasProveedoresComparativas: (params: { proveedores: string[], tipo: 'mes' | 'semana' | 'anio' }) => ipcRenderer.invoke('get-ventas-proveedores-comparativas', params),
+  getTopProveedoresVendidos: (limit?: number) => ipcRenderer.invoke('get-top-proveedores-vendidos', limit || 5),
   getClientesConSaldo: () => ipcRenderer.invoke('get-clientes-con-saldo'),
   // Inventario - KPIs y Categorías
   getInventarioKpis: () => ipcRenderer.invoke('get-inventario-kpis'),

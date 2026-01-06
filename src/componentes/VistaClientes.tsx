@@ -32,12 +32,12 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
 
   useEffect(() => {
     cargarClientes()
-    
+
     const handleActualizacion = () => {
       cargarClientes()
     }
     window.addEventListener('clientes-actualizados', handleActualizacion)
-    
+
     return () => {
       window.removeEventListener('clientes-actualizados', handleActualizacion)
     }
@@ -61,6 +61,11 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
 
     if (!nuevoCliente.nombre_completo.trim()) {
       setError('El nombre del cliente es obligatorio.')
+      return
+    }
+
+    if (!nuevoCliente.telefono.trim()) {
+      setError('El teléfono del cliente es obligatorio.')
       return
     }
 
@@ -203,9 +208,9 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
                             {cliente.estado_cuenta}
                           </span>
                         </td>
-                        <td style={{ 
-                          fontWeight: 600, 
-                          color: cliente.saldo_pendiente > 0 ? '#fbbf24' : '#94a3b8' 
+                        <td style={{
+                          fontWeight: 600,
+                          color: cliente.saldo_pendiente > 0 ? '#fbbf24' : '#94a3b8'
                         }}>
                           {formatearSaldo(cliente.saldo_pendiente)}
                         </td>
@@ -214,8 +219,8 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
                             {(cliente.saldo_pendiente > 0 || cliente.estado_cuenta === 'Con saldo') && (
                               <button
                                 className="btn-productos-pendientes"
-                                onClick={() => setMostrarProductosPendientes({ 
-                                  id: cliente.id_cliente, 
+                                onClick={() => setMostrarProductosPendientes({
+                                  id: cliente.id_cliente,
                                   nombre: cliente.nombre_completo,
                                   saldo: cliente.saldo_pendiente
                                 })}
@@ -287,13 +292,14 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
 
                   <div className="fila-formulario">
                     <div className="grupo-formulario" style={{ flex: 1 }}>
-                      <label htmlFor="telefono">Teléfono (opcional)</label>
+                      <label htmlFor="telefono">Teléfono</label>
                       <input
                         id="telefono"
                         type="tel"
                         placeholder="Ej. 5551234567"
                         value={nuevoCliente.telefono}
                         onChange={(e) => setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })}
+                        required
                       />
                     </div>
                   </div>

@@ -1,0 +1,538 @@
+/* VentasNuevo.css - Estilos para ventas con categorías */
+
+.layout-ventas-nuevo {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    width: 100%;
+}
+
+.ventas-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.ventas-acciones {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.btn-refresh {
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-refresh:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #f8fafc;
+}
+
+.btn-refresh .spinning {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.btn-secundario {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: #e2e8f0;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.btn-secundario:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-primario {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.25rem;
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.btn-primario:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+}
+
+/* KPIs Grid - 2 columnas */
+.kpi-grid-ventas {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    width: 100%;
+}
+
+@media (max-width: 600px) {
+    .kpi-grid-ventas {
+        grid-template-columns: 1fr;
+    }
+}
+
+.kpi-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    transition: all 0.3s ease;
+}
+
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.kpi-ventas .kpi-icon {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%);
+    color: #22c55e;
+}
+
+.kpi-cobrado .kpi-icon {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.2) 100%);
+    color: #3b82f6;
+}
+
+.kpi-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.kpi-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    margin: 0;
+}
+
+.kpi-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #f8fafc;
+    margin: 0;
+}
+
+/* Two Column Layout */
+.ventas-content {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+    .ventas-content {
+        grid-template-columns: 1fr;
+    }
+}
+
+.panel-recientes,
+.panel-categorias {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.panel-titulo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    margin: 0;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.panel-recientes {
+    max-height: calc(100vh - 280px);
+    display: flex;
+    flex-direction: column;
+    align-self: start;
+}
+
+.panel-recientes .lista-recientes {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+/* Panel de Categorías */
+.panel-categorias {
+    max-height: 435px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Sección de Categorías */
+.categorias-section {
+    margin-top: 0.5rem;
+}
+
+.seccion-titulo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    margin-bottom: 1rem;
+}
+
+.categorias-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.categoria-card {
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.categoria-card:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.categoria-card.expandida {
+    border-color: rgba(34, 197, 94, 0.4);
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.1);
+}
+
+.categoria-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.875rem 1rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.categoria-header:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.categoria-icono {
+    font-size: 1.75rem;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(34, 197, 94, 0.1) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+}
+
+.categoria-info {
+    flex: 1;
+}
+
+.categoria-nombre {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #f8fafc;
+    margin: 0 0 0.2rem 0;
+}
+
+.categoria-stats {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin: 0;
+}
+
+.categoria-chevron {
+    color: #64748b;
+    transition: transform 0.2s ease;
+}
+
+.categoria-card.expandida .categoria-chevron {
+    color: #22c55e;
+}
+
+/* Productos expandidos */
+.categoria-productos {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.75rem;
+    background: rgba(15, 23, 42, 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.producto-card {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1rem 1.25rem;
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.producto-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #22c55e;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.producto-card:hover {
+    background: rgba(15, 23, 42, 0.6);
+    border-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.producto-card:hover::before {
+    opacity: 1;
+}
+
+.producto-card__info {
+    flex: 1;
+    min-width: 0;
+}
+
+.producto-card__header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.35rem;
+}
+
+.producto-card__folio {
+    font-family: 'JetBrains Mono', 'Monaco', monospace;
+    font-size: 0.7rem;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.producto-card__nombre {
+    font-size: 1rem;
+    font-weight: 500;
+    color: #f1f5f9;
+    letter-spacing: 0.01em;
+}
+
+.producto-card__detalles {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.producto-card__stock {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #cbd5e1;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.producto-card__stock::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+}
+
+.producto-card__tallas {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.producto-card__precio {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #4ade80;
+    min-width: 100px;
+    text-align: right;
+    font-feature-settings: "tnum";
+    letter-spacing: 0.02em;
+}
+
+.producto-card__acciones {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-vender {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 8px;
+    color: #22c55e;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-vender:hover {
+    background: rgba(34, 197, 94, 0.25);
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.2);
+}
+
+.btn-historial {
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-historial:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
+    color: #3b82f6;
+}
+
+/* Ventas Recientes */
+.recientes-section {
+    margin-top: 1rem;
+}
+
+.lista-recientes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.sin-ventas {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1rem;
+    color: #64748b;
+    text-align: center;
+}
+
+.sin-ventas p {
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+}
+
+.venta-reciente-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.875rem 1rem;
+    background: rgba(15, 23, 42, 0.6);
+    border: none;
+    border-radius: 10px;
+    transition: background 0.2s ease;
+}
+
+.venta-reciente-item:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.venta-reciente-hora {
+    font-size: 0.8rem;
+    color: #64748b;
+    width: 50px;
+    flex-shrink: 0;
+}
+
+.venta-reciente-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.venta-reciente-producto {
+    display: block;
+    font-size: 0.9rem;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.venta-reciente-detalle {
+    display: block;
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-top: 0.15rem;
+}
+
+.venta-reciente-monto {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #22c55e;
+    flex-shrink: 0;
+}

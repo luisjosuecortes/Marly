@@ -89,6 +89,20 @@
     flex: 1;
 }
 
+.kpi-l.alerta-info h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #f8fafc;
+    font-weight: 600;
+}
+
+.alerta-subtitulo {
+    display: block;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 0.5rem;
+}
+
 .kpi-label {
     margin: 0;
     font-size: 0.75rem;
@@ -649,14 +663,20 @@
 }
 
 .alerta-info h4 {
-    margin: 0 0 0.5rem 0;
-    font-size: 0.9rem;
+    margin: 0;
+    font-size: 0.95rem;
     color: #f8fafc;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 140px;
+    font-weight: 600;
 }
+
+.alerta-subtitulo {
+    display: block;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 0.5rem;
+}
+
+
 
 .alerta-stats {
     display: flex;

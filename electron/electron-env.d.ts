@@ -52,12 +52,60 @@ interface Window {
       cantidad: number
       monto_total: number
     }>>
+    getVentasKpisHoy: () => Promise<{
+      ventasHoy: number
+      totalCobrado: number
+      pendientesHoy: number
+      ticketPromedio: number
+    }>
+    getVentasRecientes: (limite?: number) => Promise<Array<{
+      id_venta: number
+      fecha_venta: string
+      folio_producto: string
+      cantidad_vendida: number
+      talla: string
+      precio_unitario_real: number
+      descuento_aplicado: number
+      tipo_salida: string
+      abono_inicial: number
+      estado_pago: string
+      nombre_producto: string | null
+      categoria: string
+      cliente: string | null
+      total: number
+    }>>
     getVentasComparativas: (params: {
       tipo: 'mes' | 'semana' | 'anio',
       periodos: string[]
     }) => Promise<Record<string, {
       puntos: Array<{ x: number | string, y: number }>,
       total: number
+    }>>
+    getVentasProductosComparativas: (params: {
+      productos: string[],
+      tipo: 'mes' | 'semana' | 'anio'
+    }) => Promise<Record<string, {
+      nombre: string,
+      puntos: Array<{ x: number | string, y: number }>,
+      total: number
+    }>>
+    getTopProductosVendidos: (limit?: number) => Promise<Array<{
+      folio_producto: string,
+      nombre_producto: string,
+      unidades_vendidas: number,
+      total_vendido: number
+    }>>
+    getVentasProveedoresComparativas: (params: {
+      proveedores: string[],
+      tipo: 'mes' | 'semana' | 'anio'
+    }) => Promise<Record<string, {
+      puntos: Array<{ x: number | string, y: number }>,
+      total: number
+    }>>
+    getTopProveedoresVendidos: (limit?: number) => Promise<Array<{
+      proveedor: string,
+      unidades_vendidas: number,
+      total_vendido: number
     }>>
     getClientesConSaldo: () => Promise<Array<{
       id_cliente: number

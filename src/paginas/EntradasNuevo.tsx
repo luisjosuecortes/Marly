@@ -561,6 +561,34 @@ export function EntradasNuevo() {
                         )}
                     </div>
                 </div>
+
+                {/* Proveedores Registrados */}
+                <div className="proveedores-section">
+                    <h2 className="seccion-titulo">
+                        <Building2 size={20} /> Proveedores Registrados ({proveedores.length})
+                        <button className="btn-gestionar-proveedores" onClick={() => setMostrarProveedores(true)}>
+                            Gestionar
+                        </button>
+                    </h2>
+                    <div className="proveedores-lista">
+                        {proveedores.length === 0 ? (
+                            <div className="sin-proveedores">
+                                <Building2 size={32} strokeWidth={1} />
+                                <p>No hay proveedores registrados</p>
+                                <button className="btn-agregar-proveedor" onClick={() => setMostrarProveedores(true)}>
+                                    <Plus size={16} /> Agregar Proveedor
+                                </button>
+                            </div>
+                        ) : (
+                            proveedores.map((prov) => (
+                                <div key={prov} className="proveedor-chip">
+                                    <Building2 size={14} />
+                                    <span>{prov}</span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Modal Formulario */}

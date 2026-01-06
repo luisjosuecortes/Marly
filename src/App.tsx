@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Encabezado, type Pagina } from './componentes/Encabezado'
-import { Ventas } from './paginas/Ventas'
+import { VentasNuevo } from './paginas/VentasNuevo'
 import { InventarioNuevo } from './paginas/InventarioNuevo'
 import { EntradasNuevo } from './paginas/EntradasNuevo'
 import { Estadisticas } from './paginas/Estadisticas'
@@ -12,7 +12,7 @@ function App() {
   const renderizarPagina = () => {
     switch (paginaActual) {
       case 'ventas':
-        return <Ventas />
+        return <VentasNuevo />
       case 'inventario':
         return <InventarioNuevo />
       case 'entradas':
@@ -20,7 +20,7 @@ function App() {
       case 'estadisticas':
         return <Estadisticas />
       default:
-        return <Ventas />
+        return <VentasNuevo />
     }
   }
 

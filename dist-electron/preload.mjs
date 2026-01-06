@@ -52,7 +52,13 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
   getProductosMasVendidos: (filtro) => electron.ipcRenderer.invoke("get-productos-mas-vendidos", filtro || {}),
   getVentasPorCategoria: (filtro) => electron.ipcRenderer.invoke("get-ventas-por-categoria", filtro || {}),
   getVentasPorTipo: (filtro) => electron.ipcRenderer.invoke("get-ventas-por-tipo", filtro || {}),
+  getVentasKpisHoy: () => electron.ipcRenderer.invoke("get-ventas-kpis-hoy"),
+  getVentasRecientes: (limite) => electron.ipcRenderer.invoke("get-ventas-recientes", limite || 15),
   getVentasComparativas: (params) => electron.ipcRenderer.invoke("get-ventas-comparativas", params),
+  getVentasProductosComparativas: (params) => electron.ipcRenderer.invoke("get-ventas-productos-comparativas", params),
+  getTopProductosVendidos: (limit) => electron.ipcRenderer.invoke("get-top-productos-vendidos", limit || 5),
+  getVentasProveedoresComparativas: (params) => electron.ipcRenderer.invoke("get-ventas-proveedores-comparativas", params),
+  getTopProveedoresVendidos: (limit) => electron.ipcRenderer.invoke("get-top-proveedores-vendidos", limit || 5),
   getClientesConSaldo: () => electron.ipcRenderer.invoke("get-clientes-con-saldo"),
   // Inventario - KPIs y Categorías
   getInventarioKpis: () => electron.ipcRenderer.invoke("get-inventario-kpis"),
