@@ -2291,6 +2291,109 @@ ipcMain.handle("get-ventas-recientes", (_event, limite = 15) => {
     return [];
   }
 });
+ipcMain.handle("get-ventas-hoy", (_event) => {
+  try {
+    const now = /* @__PURE__ */ new Date();
+    const fechaInicio = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toLocaleString("sv");
+    const fechaFin = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toLocaleString("sv");
+    const ventas = db.prepare(`
+      SELECT 
+        v.id_venta,
+        v.fecha_venta,
+        v.folio_producto,
+        v.cantidad_vendida,
+        v.talla,
+        v.precio_unitario_real,
+        v.descuento_aplicado,
+        v.tipo_salida,
+        p.nombre_producto,
+        p.categoria,
+        c.nombre_completo as cliente
+      FROM ventas v
+      LEFT JOIN productos p ON v.folio_producto = p.folio_producto
+      LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
+      WHERE v.fecha_venta >= ? AND v.fecha_venta <= ?
+      ORDER BY v.fecha_venta DESC
+    `).all(fechaInicio, fechaFin);
+    return ventas.map((v) => ({
+      ...v,
+      total: (v.precio_unitario_real - (v.descuento_aplicado || 0)) * v.cantidad_vendida
+    }));
+  } catch (error) {
+    console.error("Error al obtener ventas de hoy:", error);
+    return [];
+  }
+});
+ipcMain.handle("get-prendas-prestadas", (_event) => {
+  try {
+    const prestamos = db.prepare(`
+      SELECT 
+        v.id_venta,
+        v.fecha_venta,
+        v.folio_producto,
+        v.cantidad_vendida,
+        v.talla,
+        v.precio_unitario_real,
+        v.tipo_salida,
+        v.notas,
+        p.nombre_producto,
+        p.categoria,
+        c.id_cliente,
+        c.nombre_completo as cliente,
+        c.telefono
+      FROM ventas v
+      LEFT JOIN productos p ON v.folio_producto = p.folio_producto
+      LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
+      WHERE v.tipo_salida = 'Prestado'
+      ORDER BY v.fecha_venta DESC
+    `).all();
+    return prestamos;
+  } catch (error) {
+    console.error("Error al obtener prendas prestadas:", error);
+    return [];
+  }
+});
+ipcMain.handle("procesar-devolucion-prestamo", (_event, id_venta) => {
+  const devolver = db.transaction(() => {
+    const venta = db.prepare(`
+      SELECT folio_producto, cantidad_vendida, talla, tipo_salida
+      FROM ventas
+      WHERE id_venta = ?
+    `).get(id_venta);
+    if (!venta) throw new Error("Venta no encontrada");
+    if (venta.tipo_salida !== "Prestado") throw new Error("Esta venta no es un préstamo");
+    db.prepare(`
+      UPDATE tallas_producto
+      SET cantidad = cantidad + @cantidad
+      WHERE folio_producto = @folio AND talla = @talla
+    `).run({
+      cantidad: venta.cantidad_vendida,
+      folio: venta.folio_producto,
+      talla: venta.talla
+    });
+    db.prepare(`
+      UPDATE productos
+      SET stock_actual = stock_actual + @cantidad
+      WHERE folio_producto = @folio
+    `).run({
+      cantidad: venta.cantidad_vendida,
+      folio: venta.folio_producto
+    });
+    db.prepare(`
+      UPDATE ventas
+      SET tipo_salida = 'Devolución',
+          notas = CASE WHEN notas IS NULL THEN 'Devolución de préstamo' ELSE notas || ' - Devolución de préstamo' END
+      WHERE id_venta = ?
+    `).run(id_venta);
+  });
+  try {
+    devolver();
+    return { success: true };
+  } catch (error) {
+    console.error("Error al procesar devolución de préstamo:", error);
+    throw error;
+  }
+});
 let ventanaPrincipal;
 function crearVentana() {
   ventanaPrincipal = new BrowserWindow({

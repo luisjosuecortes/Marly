@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { DollarSign, ShoppingBag, Clock, User, ChevronDown, ChevronUp, History, Package } from 'lucide-react'
+import { DollarSign, ShoppingBag, Clock, User, ChevronDown, ChevronUp, History, Package, Search, RotateCcw, CheckCircle } from 'lucide-react'
 import { FormularioVenta } from '../componentes/FormularioVenta/FormularioVenta'
 import { useProductos } from '../hooks/useProductos'
 import { VistaClientes } from '../componentes/VistaClientes'
@@ -46,12 +46,12 @@ export function VentasNuevo() {
     const [productoHistorial, setProductoHistorial] = useState<any | null>(null)
     const [productoSeleccionado, setProductoSeleccionado] = useState<any | null>(null)
     const [categoriaExpandida, setCategoriaExpandida] = useState<string | null>(null)
-
+    const [busquedaFolio, setBusquedaFolio] = useState('')
+    const [productoEncontrado, setProductoEncontrado] = useState<any | null>(null)
 
     const [kpis, setKpis] = useState<VentasKpis>({ ventasHoy: 0, totalCobrado: 0 })
-    const [ventasRecientes, setVentasRecientes] = useState<VentaReciente[]>([])
-
-
+    const [ventasHoy, setVentasHoy] = useState<VentaReciente[]>([])
+    const [prendasPrestadas, setPrendasPrestadas] = useState<any[]>([])
 
     const categorias = useMemo((): CategoriaVentas[] => {
         const grupos: Record<string, { productos: any[], totalUnidades: number, valorVenta: number }> = {}
@@ -88,12 +88,14 @@ export function VentasNuevo() {
 
     const cargarDatos = async () => {
         try {
-            const [kpisData, recientesData] = await Promise.all([
+            const [kpisData, ventasData, prestamosData] = await Promise.all([
                 window.ipcRenderer.getVentasKpisHoy(),
-                window.ipcRenderer.getVentasRecientes(5)
+                window.ipcRenderer.getVentasHoy(),
+                window.ipcRenderer.getPrendasPrestadas()
             ])
             setKpis({ ventasHoy: kpisData.ventasHoy, totalCobrado: kpisData.totalCobrado })
-            setVentasRecientes(recientesData)
+            setVentasHoy(ventasData)
+            setPrendasPrestadas(prestamosData)
         } catch (error) {
             console.error('Error cargando datos:', error)
         }
@@ -111,6 +113,17 @@ export function VentasNuevo() {
         return () => window.removeEventListener('ventas-actualizadas', handleActualizacion)
     }, [])
 
+    // Efecto para búsqueda instantánea
+    useEffect(() => {
+        if (!busquedaFolio.trim()) {
+            setProductoEncontrado(null)
+            return
+        }
+
+        const encontrado = productos.find(p => p.folio_producto.toLowerCase() === busquedaFolio.toLowerCase())
+        setProductoEncontrado(encontrado || null)
+    }, [busquedaFolio, productos])
+
     const manejarGuardar = async (datos: any) => {
         try {
             await window.ipcRenderer.registrarVenta(datos)
@@ -118,9 +131,23 @@ export function VentasNuevo() {
             await cargarDatos()
             setMostrarFormulario(false)
             setProductoSeleccionado(null)
+            setBusquedaFolio('') // Limpiar búsqueda al vender
             window.dispatchEvent(new CustomEvent('productos-actualizados'))
         } catch (error: any) {
             throw new Error(error?.message || 'Error al registrar la venta.')
+        }
+    }
+
+    const manejarDevolucion = async (id_venta: number) => {
+        if (!confirm('¿Estás seguro de devolver esta prenda al inventario?')) return
+        try {
+            await window.ipcRenderer.procesarDevolucionPrestamo(id_venta)
+            await cargarDatos()
+            await recargarProductos()
+            window.dispatchEvent(new CustomEvent('ventas-actualizadas'))
+        } catch (error) {
+            console.error('Error al procesar devolución:', error)
+            alert('Error al procesar la devolución')
         }
     }
 
@@ -131,9 +158,6 @@ export function VentasNuevo() {
     const formatearMoneda = (valor: number) => {
         return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(valor)
     }
-
-
-
 
     if (mostrarClientes) {
         return <VistaClientes alCerrar={() => setMostrarClientes(false)} />
@@ -199,41 +223,45 @@ export function VentasNuevo() {
 
                 {/* Main Content - Two columns layout */}
                 <div className="ventas-content">
-                    {/* Ventas Recientes - LEFT */}
-                    <div className="panel-recientes">
-                        <h2 className="panel-titulo">
-                            <Clock size={18} />
-                            Ventas Recientes
-                        </h2>
-                        <div className="lista-recientes">
-                            {ventasRecientes.length === 0 ? (
-                                <div className="sin-ventas">
-                                    <ShoppingBag size={32} strokeWidth={1} />
-                                    <p>Sin ventas hoy</p>
-                                </div>
-                            ) : (
-                                ventasRecientes.map((venta) => (
-                                    <div
-                                        key={venta.id_venta}
-                                        className="venta-reciente-item clickable"
-                                        onClick={() => setProductoHistorial({ folio_producto: venta.folio_producto, nombre_producto: venta.nombre_producto })}
-                                    >
-                                        <div className="venta-reciente-info">
-                                            <span className="venta-reciente-producto">{venta.nombre_producto || venta.folio_producto}</span>
-                                            <span className="venta-reciente-detalle">
-                                                {venta.categoria && <span className="venta-reciente-categoria">{iconosCategorias[venta.categoria] || '📦'} {venta.categoria}</span>}
-                                                <span className="venta-reciente-meta">{venta.talla} • {venta.cantidad_vendida} ud • {venta.tipo_salida}</span>
-                                            </span>
-                                        </div>
-                                        <div className="venta-reciente-monto">{formatearMoneda(venta.total)}</div>
+                    {/* Categorías & Buscador - LEFT (Small) */}
+                    <div className="panel-categorias">
+                        {/* Buscador de Folio */}
+                        <div className="buscador-folio-container">
+                            <div className="input-busqueda-wrapper">
+                                <Search size={18} className="icono-busqueda" />
+                                <input
+                                    type="text"
+                                    placeholder="Buscar folio..."
+                                    value={busquedaFolio}
+                                    onChange={(e) => setBusquedaFolio(e.target.value)}
+                                    className="input-busqueda-folio"
+                                    autoFocus
+                                />
+                            </div>
+
+                            {/* Producto Encontrado Card */}
+                            {productoEncontrado && (
+                                <div className="producto-encontrado-card">
+                                    <div className="producto-encontrado-info">
+                                        <span className="producto-encontrado-nombre">{productoEncontrado.nombre_producto}</span>
+                                        <span className="producto-encontrado-folio">{productoEncontrado.folio_producto}</span>
+                                        <span className="producto-encontrado-precio">{formatearMoneda(productoEncontrado.ultimo_precio || 0)}</span>
                                     </div>
-                                ))
+                                    <button
+                                        className="btn-vender-rapido"
+                                        onClick={() => {
+                                            setProductoSeleccionado(productoEncontrado)
+                                            setMostrarFormulario(true)
+                                        }}
+                                        disabled={productoEncontrado.stock_actual <= 0}
+                                    >
+                                        <ShoppingBag size={16} />
+                                        Vender
+                                    </button>
+                                </div>
                             )}
                         </div>
-                    </div>
 
-                    {/* Categorías - RIGHT */}
-                    <div className="panel-categorias">
                         <h2 className="panel-titulo">
                             <Package size={18} />
                             Categorías ({categorias.length})
@@ -283,38 +311,45 @@ export function VentasNuevo() {
                                                             <div className="producto-card__info">
                                                                 <div className="producto-card__header">
                                                                     <span className="producto-card__folio">{producto.folio_producto}</span>
-                                                                    <span className="producto-card__nombre">{producto.nombre_producto || 'Sin nombre'}</span>
-                                                                    {sinStock && <span className="badge-agotado" style={{ marginLeft: '8px', fontSize: '0.7em', background: '#e74c3c', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>AGOTADO</span>}
+                                                                    <span className="producto-card__nombre">{producto.nombre_producto}</span>
                                                                 </div>
                                                                 <div className="producto-card__detalles">
-                                                                    <span className="producto-card__stock">{producto.stock_actual} unidades</span>
-                                                                    <span className="producto-card__tallas">{tallasTexto}</span>
+                                                                    <div className="producto-card__stock">
+                                                                        {producto.stock_actual} unidades
+                                                                    </div>
+                                                                    <div className="producto-card__tallas">
+                                                                        {tallasTexto}
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                            <div className="producto-card__precio">
-                                                                {formatearMoneda(producto.ultimo_precio || 0)}
-                                                            </div>
-                                                            <div className="producto-card__acciones">
-                                                                <button
-                                                                    className="btn-vender"
-                                                                    disabled={sinStock}
-                                                                    style={{ opacity: sinStock ? 0.5 : 1, cursor: sinStock ? 'not-allowed' : 'pointer' }}
-                                                                    onClick={() => {
-                                                                        if (!sinStock) {
+
+                                                            <div className="producto-card__footer">
+                                                                <div className="producto-card__precio">
+                                                                    ${producto.ultimo_precio?.toFixed(2)}
+                                                                </div>
+                                                                <div className="producto-card__acciones">
+                                                                    <button
+                                                                        className="btn-historial"
+                                                                        title="Ver historial"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation()
+                                                                            // TODO: Implementar historial
+                                                                        }}
+                                                                    >
+                                                                        <History size={16} />
+                                                                    </button>
+                                                                    <button
+                                                                        className="btn-vender"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation()
                                                                             setProductoSeleccionado(producto)
                                                                             setMostrarFormulario(true)
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <ShoppingBag size={16} />
-                                                                    Vender
-                                                                </button>
-                                                                <button
-                                                                    className="btn-historial"
-                                                                    onClick={() => setProductoHistorial(producto)}
-                                                                >
-                                                                    <History size={16} />
-                                                                </button>
+                                                                        }}
+                                                                    >
+                                                                        <ShoppingBag size={14} />
+                                                                        Vender
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     )
@@ -326,7 +361,94 @@ export function VentasNuevo() {
                             ))}
                         </div>
                     </div>
+
+                    {/* Ventas de Hoy - RIGHT (Big) */}
+                    <div className="panel-recientes">
+                        <h2 className="panel-titulo">
+                            <Clock size={18} />
+                            Ventas de Hoy
+                        </h2>
+                        <div className="lista-recientes">
+                            {ventasHoy.length === 0 ? (
+                                <div className="sin-ventas">
+                                    <ShoppingBag size={32} strokeWidth={1} />
+                                    <p>Sin ventas hoy</p>
+                                </div>
+                            ) : (
+                                ventasHoy.map((venta) => (
+                                    <div
+                                        key={venta.id_venta}
+                                        className="venta-reciente-item clickable"
+                                        onClick={() => setProductoHistorial({ folio_producto: venta.folio_producto, nombre_producto: venta.nombre_producto })}
+                                    >
+                                        <div className="venta-reciente-hora">
+                                            {new Date(venta.fecha_venta).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                        <div className="venta-reciente-info">
+                                            <span className="venta-reciente-producto">{venta.nombre_producto || venta.folio_producto}</span>
+                                            <span className="venta-reciente-detalle">
+                                                {venta.categoria && <span className="venta-reciente-categoria">{iconosCategorias[venta.categoria] || '📦'} {venta.categoria}</span>}
+                                                <span className="venta-reciente-meta">{venta.talla} • {venta.cantidad_vendida} ud • {venta.tipo_salida}</span>
+                                            </span>
+                                        </div>
+                                        <div className="venta-reciente-monto">{formatearMoneda(venta.total)}</div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
                 </div>
+
+                {/* Sección de Prendas Prestadas */}
+                {prendasPrestadas.length > 0 && (
+                    <div className="seccion-prestamos">
+                        <h2 className="panel-titulo">
+                            <User size={18} />
+                            Prendas Prestadas ({prendasPrestadas.length})
+                        </h2>
+                        <div className="grid-prestamos">
+                            {prendasPrestadas.map((prestamo) => (
+                                <div key={prestamo.id_venta} className="prestamo-card">
+                                    <div className="prestamo-info">
+                                        <div className="prestamo-header">
+                                            <span className="prestamo-cliente">{prestamo.cliente || 'Cliente sin nombre'}</span>
+                                            <span className="prestamo-fecha">{new Date(prestamo.fecha_venta).toLocaleDateString()}</span>
+                                        </div>
+                                        <div className="prestamo-producto">
+                                            <span style={{ fontSize: '1.2em' }}>{iconosCategorias[prestamo.categoria] || '📦'}</span>
+                                            {prestamo.nombre_producto} ({prestamo.folio_producto}) - Talla: {prestamo.talla}
+                                        </div>
+                                        {prestamo.notas && <div className="prestamo-notas">Nota: {prestamo.notas}</div>}
+                                    </div>
+                                    <div className="prestamo-acciones">
+                                        <button
+                                            className="btn-devolver"
+                                            onClick={() => manejarDevolucion(prestamo.id_venta)}
+                                        >
+                                            <RotateCcw size={16} />
+                                            Devolver
+                                        </button>
+                                        <button
+                                            className="btn-vender-prestamo"
+                                            onClick={() => {
+                                                const producto = productos.find(p => p.folio_producto === prestamo.folio_producto)
+                                                if (producto) {
+                                                    setProductoSeleccionado(producto)
+                                                    setMostrarFormulario(true)
+                                                } else {
+                                                    alert('Producto no encontrado en inventario actual')
+                                                }
+                                            }}
+                                        >
+                                            <CheckCircle size={16} />
+                                            Vender
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     )

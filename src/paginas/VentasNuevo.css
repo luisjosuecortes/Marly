@@ -178,6 +178,8 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .panel-titulo {
@@ -193,10 +195,8 @@
 }
 
 .panel-recientes {
-    max-height: calc(100vh - 280px);
-    display: flex;
-    flex-direction: column;
-    align-self: start;
+    height: calc(100vh - 350px);
+    min-height: 400px;
 }
 
 .panel-recientes .lista-recientes {
@@ -207,9 +207,124 @@
 
 /* Panel de Categorías */
 .panel-categorias {
-    max-height: 435px;
+    height: calc(100vh - 350px);
+    min-height: 400px;
+}
+
+/* Buscador de Folio */
+.buscador-folio-container {
+    padding: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     flex-direction: column;
+    gap: 0.75rem;
+}
+
+.input-busqueda-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.icono-busqueda {
+    position: absolute;
+    left: 0.75rem;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.input-busqueda-folio {
+    width: 100%;
+    padding: 0.6rem 0.75rem 0.6rem 2.25rem;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: #f8fafc;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.input-busqueda-folio:focus {
+    outline: none;
+    border-color: #3b82f6;
+    background: rgba(15, 23, 42, 0.8);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Producto Encontrado Card */
+.producto-encontrado-card {
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 8px;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.producto-encontrado-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.producto-encontrado-nombre {
+    font-weight: 600;
+    color: #f1f5f9;
+    font-size: 0.95rem;
+}
+
+.producto-encontrado-folio {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-family: monospace;
+}
+
+.producto-encontrado-precio {
+    font-weight: 700;
+    color: #4ade80;
+    font-size: 1.1rem;
+    margin-top: 0.25rem;
+}
+
+.btn-vender-rapido {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: #22c55e;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-vender-rapido:hover {
+    background: #16a34a;
+    transform: translateY(-1px);
+}
+
+.btn-vender-rapido:disabled {
+    background: #64748b;
+    cursor: not-allowed;
+    transform: none;
+    opacity: 0.7;
 }
 
 /* Sección de Categorías */
@@ -230,7 +345,7 @@
 .categorias-grid {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.75rem;
     padding: 0.75rem;
     flex: 1;
     overflow-y: auto;
@@ -249,18 +364,20 @@
 .categoria-card:hover {
     border-color: rgba(255, 255, 255, 0.12);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
 }
 
 .categoria-card.expandida {
     border-color: rgba(34, 197, 94, 0.4);
     box-shadow: 0 0 20px rgba(34, 197, 94, 0.1);
+    background: rgba(15, 23, 42, 0.6);
 }
 
 .categoria-header {
     display: flex;
     align-items: center;
     gap: 1rem;
-    padding: 0.875rem 1rem;
+    padding: 1rem;
     cursor: pointer;
     transition: background 0.2s ease;
 }
@@ -270,41 +387,69 @@
 }
 
 .categoria-icono {
-    font-size: 1.75rem;
-    width: 44px;
-    height: 44px;
+    font-size: 1.5rem;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(34, 197, 94, 0.1) 100%);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 10px;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.categoria-card:hover .categoria-icono {
+    transform: scale(1.05);
+    border-color: rgba(255, 255, 255, 0.15);
 }
 
 .categoria-info {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
 }
 
 .categoria-nombre {
-    font-size: 0.95rem;
+    font-size: 1rem;
     font-weight: 600;
     color: #f8fafc;
-    margin: 0 0 0.2rem 0;
+    margin: 0;
+    letter-spacing: 0.01em;
 }
 
 .categoria-stats {
-    font-size: 0.75rem;
-    color: #64748b;
+    font-size: 0.8rem;
+    color: #94a3b8;
     margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.categoria-stats span {
+    display: inline-flex;
+    align-items: center;
 }
 
 .categoria-chevron {
     color: #64748b;
-    transition: transform 0.2s ease;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(255, 255, 255, 0.03);
+    padding: 0.25rem;
+    border-radius: 6px;
+}
+
+.categoria-card:hover .categoria-chevron {
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.06);
 }
 
 .categoria-card.expandida .categoria-chevron {
     color: #22c55e;
+    transform: rotate(180deg);
+    background: rgba(34, 197, 94, 0.1);
 }
 
 /* Productos expandidos */
@@ -319,9 +464,9 @@
 
 .producto-card {
     display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    padding: 1rem 1.25rem;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem;
     background: rgba(15, 23, 42, 0.4);
     border: 1px solid rgba(255, 255, 255, 0.04);
     border-radius: 12px;
@@ -354,87 +499,102 @@
 }
 
 .producto-card__info {
-    flex: 1;
-    min-width: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
 }
 
 .producto-card__header {
     display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.35rem;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+    flex-wrap: wrap;
 }
 
 .producto-card__folio {
     font-family: 'JetBrains Mono', 'Monaco', monospace;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: #94a3b8;
     background: rgba(255, 255, 255, 0.03);
-    padding: 0.15rem 0.4rem;
+    padding: 0.1rem 0.3rem;
     border-radius: 4px;
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .producto-card__nombre {
-    font-size: 1rem;
+    font-size: 0.9rem;
     font-weight: 500;
     color: #f1f5f9;
     letter-spacing: 0.01em;
+    line-height: 1.3;
+    flex: 1;
 }
 
 .producto-card__detalles {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.75rem;
+    flex-wrap: wrap;
 }
 
 .producto-card__stock {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 500;
     color: #cbd5e1;
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.3rem;
 }
 
 .producto-card__stock::before {
     content: '';
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     background: #22c55e;
 }
 
 .producto-card__tallas {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: #64748b;
 }
 
+.producto-card__footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: 0.75rem;
+}
+
 .producto-card__precio {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
     color: #4ade80;
-    min-width: 100px;
-    text-align: right;
+    text-align: left;
     font-feature-settings: "tnum";
     letter-spacing: 0.02em;
 }
 
 .producto-card__acciones {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.4rem;
 }
 
 .btn-vender {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.5rem 0.75rem;
+    gap: 0.3rem;
+    padding: 0.4rem 0.6rem;
     background: rgba(34, 197, 94, 0.15);
     border: 1px solid rgba(34, 197, 94, 0.3);
-    border-radius: 8px;
+    border-radius: 6px;
     color: #22c55e;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -446,10 +606,10 @@
 }
 
 .btn-historial {
-    padding: 0.5rem;
+    padding: 0.4rem;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
+    border-radius: 6px;
     color: #64748b;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -562,4 +722,166 @@
     font-weight: 600;
     color: #22c55e;
     flex-shrink: 0;
+}
+
+/* Sección de Prendas Prestadas */
+.seccion-prestamos {
+    margin-top: 1.5rem;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 400px;
+    /* Altura máxima para permitir scroll */
+}
+
+.grid-prestamos {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.prestamo-card {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.prestamo-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: #fbbf24;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.prestamo-card:hover {
+    background: rgba(15, 23, 42, 0.8);
+    border-color: rgba(255, 255, 255, 0.1);
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.prestamo-card:hover::before {
+    opacity: 1;
+}
+
+.prestamo-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    flex: 1;
+    /* Ocupa el espacio disponible */
+}
+
+.prestamo-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.prestamo-cliente {
+    font-weight: 600;
+    color: #f8fafc;
+    font-size: 1rem;
+}
+
+.prestamo-fecha {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.15rem 0.5rem;
+    border-radius: 99px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.prestamo-producto {
+    font-size: 0.95rem;
+    color: #cbd5e1;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.prestamo-notas {
+    font-size: 0.8rem;
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.1);
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    width: fit-content;
+    margin-top: 0.25rem;
+    border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.prestamo-acciones {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-left: auto;
+    /* Empuja los botones a la derecha */
+    padding-left: 1rem;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btn-devolver {
+    padding: 0.6rem 1.25rem;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 10px;
+    color: #60a5fa;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.btn-devolver:hover {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: #3b82f6;
+    color: #3b82f6;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.btn-vender-prestamo {
+    padding: 0.6rem 1.25rem;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 10px;
+    color: #4ade80;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.btn-vender-prestamo:hover {
+    background: rgba(34, 197, 94, 0.2);
+    border-color: #22c55e;
+    color: #22c55e;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);
 }

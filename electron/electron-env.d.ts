@@ -62,6 +62,36 @@ interface Window {
       pendientesHoy: number
       ticketPromedio: number
     }>
+    getVentasHoy: () => Promise<Array<{
+      id_venta: number
+      fecha_venta: string
+      folio_producto: string
+      cantidad_vendida: number
+      talla: string
+      precio_unitario_real: number
+      descuento_aplicado: number
+      tipo_salida: string
+      nombre_producto: string | null
+      categoria: string
+      cliente: string | null
+      total: number
+    }>>
+    getPrendasPrestadas: () => Promise<Array<{
+      id_venta: number
+      fecha_venta: string
+      folio_producto: string
+      cantidad_vendida: number
+      talla: string
+      precio_unitario_real: number
+      tipo_salida: string
+      notas: string | null
+      nombre_producto: string | null
+      categoria: string
+      id_cliente: number | null
+      cliente: string | null
+      telefono: string | null
+    }>>
+    procesarDevolucionPrestamo: (id_venta: number) => Promise<{ success: boolean }>
     getVentasRecientes: (limite?: number) => Promise<Array<{
       id_venta: number
       fecha_venta: string
