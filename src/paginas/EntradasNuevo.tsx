@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Package, TrendingUp, DollarSign, Plus, Building2, Search, Filter, ChevronDown, ChevronUp, History, BoxIcon, Clock, Calendar, ArrowDownCircle, X, Save, AlertCircle, Trash2 } from 'lucide-react'
 import { ModalProveedores } from '../componentes/ModalProveedores'
-import { ModalHistorialEntradas } from '../componentes/ModalHistorialEntradas'
+import { ModalHistorialEntradas } from '../componentes/ModalHistorialEntradas.tsx'
 import './EntradasNuevo.css'
 
 interface EntradasKpis {
