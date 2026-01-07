@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, History, DollarSign, ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
+import { X, History, DollarSign, ArrowDown, ArrowUp } from 'lucide-react'
 import './ModalHistorialCliente.css'
 
 interface PropsModalHistorialCliente {
@@ -21,7 +21,7 @@ export function ModalHistorialCliente({ idCliente, nombreCliente, alCerrar }: Pr
   const [movimientos, setMovimientos] = useState<Movimiento[]>([])
   const [cargando, setCargando] = useState(true)
   const [saldoActual, setSaldoActual] = useState(0)
-  const [eliminando, setEliminando] = useState<number | null>(null)
+
 
   const cargarHistorial = async () => {
     setCargando(true)
@@ -56,22 +56,7 @@ export function ModalHistorialCliente({ idCliente, nombreCliente, alCerrar }: Pr
     }).format(monto)
   }
 
-  const manejarEliminar = async (idMovimiento: number) => {
-    if (!confirm('¿Estás seguro de eliminar este movimiento? Esta acción ajustará el saldo del cliente.')) {
-      return
-    }
 
-    setEliminando(idMovimiento)
-    try {
-      await window.ipcRenderer.eliminarMovimientoCliente(idMovimiento)
-      await cargarHistorial()
-      window.dispatchEvent(new CustomEvent('clientes-actualizados'))
-    } catch (error: any) {
-      alert(error?.message || 'Error al eliminar el movimiento')
-    } finally {
-      setEliminando(null)
-    }
-  }
 
   return (
     <div className="modal-overlay" onClick={alCerrar}>
@@ -109,7 +94,6 @@ export function ModalHistorialCliente({ idCliente, nombreCliente, alCerrar }: Pr
                     <th style={{ textAlign: 'center' }}>Monto</th>
                     <th style={{ textAlign: 'center' }}>Referencia</th>
                     <th style={{ textAlign: 'center' }}>Responsable</th>
-                    <th style={{ textAlign: 'center' }}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -144,16 +128,6 @@ export function ModalHistorialCliente({ idCliente, nombreCliente, alCerrar }: Pr
                       </td>
                       <td style={{ color: '#cbd5e1', textAlign: 'center' }}>
                         {movimiento.responsable || '—'}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button
-                          className="btn-eliminar-venta"
-                          onClick={() => manejarEliminar(movimiento.id_movimiento)}
-                          disabled={eliminando === movimiento.id_movimiento}
-                          title="Eliminar movimiento"
-                        >
-                          <Trash2 size={14} />
-                        </button>
                       </td>
                     </tr>
                   ))}

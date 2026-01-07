@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, DollarSign, Package, ShoppingBag, User, Trash2 } from 'lucide-react'
+import { X, DollarSign, Package, ShoppingBag, User, RotateCcw } from 'lucide-react'
 import './ModalHistorialVentas.css'
 
 interface PropsModalHistorialVentas {
@@ -54,17 +54,18 @@ export function ModalHistorialVentas({ folio, nombreProducto, alCerrar }: PropsM
     }
   }
 
-  const manejarEliminar = async (idVenta: number) => {
-    if (!confirm('¿Estás seguro de eliminar esta venta? Esta acción revertirá el stock y los movimientos del cliente.')) {
+  const manejarDevolucion = async (idVenta: number) => {
+    if (!confirm('¿Estás seguro de procesar esta devolución? El producto regresará al inventario y los abonos se convertirán en reembolsos.')) {
       return
     }
 
     setEliminando(idVenta)
     try {
-      await window.ipcRenderer.eliminarVenta(idVenta)
+      await window.ipcRenderer.devolverVenta(idVenta)
       await cargarHistorial()
+      window.dispatchEvent(new CustomEvent('ventas-actualizadas'))
     } catch (error: any) {
-      alert(error?.message || 'Error al eliminar la venta')
+      alert(error?.message || 'Error al procesar la devolución')
     } finally {
       setEliminando(null)
     }
@@ -159,14 +160,16 @@ export function ModalHistorialVentas({ folio, nombreProducto, alCerrar }: PropsM
                           )}
                         </td>
                         <td style={{ textAlign: 'center' }}>
-                          <button
-                            className="btn-eliminar-venta"
-                            onClick={() => manejarEliminar(venta.id_venta)}
-                            disabled={eliminando === venta.id_venta}
-                            title="Eliminar venta"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          {venta.tipo_salida !== 'Devolución' && (
+                            <button
+                              className="btn-eliminar-venta"
+                              onClick={() => manejarDevolucion(venta.id_venta)}
+                              disabled={eliminando === venta.id_venta}
+                              title="Devolución"
+                            >
+                              <RotateCcw size={14} />
+                            </button>
+                          )}
                         </td>
                       </tr>
                     )

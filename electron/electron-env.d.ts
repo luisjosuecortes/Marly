@@ -31,7 +31,7 @@ interface Window {
     getProductosDisponibles: () => Promise<any[]>
     registrarVenta: (datos: any) => Promise<{ success: true }>
     getPrecioVentaPorTalla: (datos: { folio_producto: string, talla: string }) => Promise<{ precio_unitario_base: number }>
-    eliminarVenta: (id_venta: number) => Promise<{ success: boolean }>
+    devolverVenta: (id_venta: number, responsable?: string) => Promise<{ success: boolean }>
     eliminarMovimientoCliente: (id_movimiento: number) => Promise<{ success: boolean }>
     // Estadísticas
     getEstadisticasResumen: (filtro: { fechaInicio: string, fechaFin: string }) => Promise<{ ventasTotales: number, costosTotales: number, gananciaNeta: number, totalCobrado: number, saldoPendiente: number, valorInventario: number, numVentas: number }>

@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS movimientos_cliente (
   responsable TEXT,
   FOREIGN KEY (id_cliente) REFERENCES clientes (id_cliente) ON UPDATE CASCADE ON DELETE CASCADE,
   CHECK (monto >= 0),
-  CHECK (tipo_movimiento IN ('cargo', 'abono'))
+  CHECK (tipo_movimiento IN ('cargo', 'abono', 'reembolso', 'devolucion'))
 );
 
 CREATE TABLE IF NOT EXISTS tallas_producto (

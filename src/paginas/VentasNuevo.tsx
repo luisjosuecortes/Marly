@@ -21,6 +21,7 @@ interface VentaReciente {
     descuento_aplicado: number
     tipo_salida: string
     nombre_producto: string | null
+    categoria: string | null
     total: number
 }
 
@@ -50,15 +51,12 @@ export function VentasNuevo() {
     const [kpis, setKpis] = useState<VentasKpis>({ ventasHoy: 0, totalCobrado: 0 })
     const [ventasRecientes, setVentasRecientes] = useState<VentaReciente[]>([])
 
-    // Agrupar productos disponibles por categoría
-    const productosDisponibles = useMemo(() => {
-        return productos.filter(p => p.stock_actual > 0)
-    }, [productos])
+
 
     const categorias = useMemo((): CategoriaVentas[] => {
         const grupos: Record<string, { productos: any[], totalUnidades: number, valorVenta: number }> = {}
 
-        productosDisponibles.forEach(p => {
+        productos.forEach(p => {
             if (!grupos[p.categoria]) {
                 grupos[p.categoria] = { productos: [], totalUnidades: 0, valorVenta: 0 }
             }
@@ -67,18 +65,26 @@ export function VentasNuevo() {
             grupos[p.categoria].valorVenta += (p.ultimo_precio || 0) * p.stock_actual
         })
 
-        return Object.entries(grupos).map(([categoria, data]) => ({
-            categoria,
-            numProductos: data.productos.length,
-            totalUnidades: data.totalUnidades,
-            valorVenta: data.valorVenta
-        })).sort((a, b) => b.valorVenta - a.valorVenta)
-    }, [productosDisponibles])
+        // Iterar sobre TODAS las categorías definidas en iconosCategorias
+        return Object.keys(iconosCategorias).map(categoria => {
+            const data = grupos[categoria] || { productos: [], totalUnidades: 0, valorVenta: 0 }
+            return {
+                categoria,
+                numProductos: data.productos.length,
+                totalUnidades: data.totalUnidades,
+                valorVenta: data.valorVenta
+            }
+        }).sort((a, b) => {
+            // Ordenar: primero por valor de venta (desc), luego alfabéticamente si es 0
+            if (b.valorVenta !== a.valorVenta) return b.valorVenta - a.valorVenta
+            return a.categoria.localeCompare(b.categoria)
+        })
+    }, [productos])
 
     const productosCategoriaExpandida = useMemo(() => {
         if (!categoriaExpandida) return []
-        return productosDisponibles.filter(p => p.categoria === categoriaExpandida)
-    }, [productosDisponibles, categoriaExpandida])
+        return productos.filter(p => p.categoria === categoriaExpandida)
+    }, [productos, categoriaExpandida])
 
     const cargarDatos = async () => {
         try {
@@ -95,6 +101,14 @@ export function VentasNuevo() {
 
     useEffect(() => {
         cargarDatos()
+
+        const handleActualizacion = () => {
+            cargarDatos()
+            recargarProductos() // También recargar productos para actualizar stock
+        }
+
+        window.addEventListener('ventas-actualizadas', handleActualizacion)
+        return () => window.removeEventListener('ventas-actualizadas', handleActualizacion)
     }, [])
 
     const manejarGuardar = async (datos: any) => {
@@ -199,10 +213,17 @@ export function VentasNuevo() {
                                 </div>
                             ) : (
                                 ventasRecientes.map((venta) => (
-                                    <div key={venta.id_venta} className="venta-reciente-item">
+                                    <div
+                                        key={venta.id_venta}
+                                        className="venta-reciente-item clickable"
+                                        onClick={() => setProductoHistorial({ folio_producto: venta.folio_producto, nombre_producto: venta.nombre_producto })}
+                                    >
                                         <div className="venta-reciente-info">
                                             <span className="venta-reciente-producto">{venta.nombre_producto || venta.folio_producto}</span>
-                                            <span className="venta-reciente-detalle">{venta.talla} • {venta.cantidad_vendida} unidades • {venta.tipo_salida}</span>
+                                            <span className="venta-reciente-detalle">
+                                                {venta.categoria && <span className="venta-reciente-categoria">{iconosCategorias[venta.categoria] || '📦'} {venta.categoria}</span>}
+                                                <span className="venta-reciente-meta">{venta.talla} • {venta.cantidad_vendida} ud • {venta.tipo_salida}</span>
+                                            </span>
                                         </div>
                                         <div className="venta-reciente-monto">{formatearMoneda(venta.total)}</div>
                                     </div>
@@ -219,7 +240,11 @@ export function VentasNuevo() {
                         </h2>
                         <div className="categorias-grid">
                             {categorias.map((cat) => (
-                                <div key={cat.categoria} className={`categoria-card ${categoriaExpandida === cat.categoria ? 'expandida' : ''}`}>
+                                <div
+                                    key={cat.categoria}
+                                    className={`categoria-card ${categoriaExpandida === cat.categoria ? 'expandida' : ''} ${cat.numProductos === 0 ? 'vacia' : ''}`}
+                                    style={{ opacity: cat.numProductos === 0 ? 0.6 : 1 }}
+                                >
                                     <div className="categoria-header" onClick={() => toggleCategoria(cat.categoria)}>
                                         <div className="categoria-icono">{iconosCategorias[cat.categoria] || '📦'}</div>
                                         <div className="categoria-info">
@@ -236,48 +261,65 @@ export function VentasNuevo() {
                                     {/* Productos expandidos */}
                                     {categoriaExpandida === cat.categoria && (
                                         <div className="categoria-productos">
-                                            {productosCategoriaExpandida.map((producto) => {
-                                                const tallasTexto = producto.tallas_detalle
-                                                    ?.filter((t: any) => t.cantidad > 0)
-                                                    .map((t: any) => `${t.talla}: ${t.cantidad}`)
-                                                    .join(', ') || '—'
+                                            {productosCategoriaExpandida.length === 0 ? (
+                                                <div className="sin-productos-categoria" style={{ padding: '20px', textAlign: 'center', color: '#888', fontStyle: 'italic' }}>
+                                                    <Package size={24} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                                                    <p>No hay productos registrados en esta categoría</p>
+                                                </div>
+                                            ) : (
+                                                productosCategoriaExpandida.map((producto) => {
+                                                    const sinStock = producto.stock_actual <= 0
+                                                    const tallasTexto = producto.tallas_detalle
+                                                        ?.filter((t: any) => t.cantidad > 0)
+                                                        .map((t: any) => `${t.talla}: ${t.cantidad}`)
+                                                        .join(', ') || '—'
 
-                                                return (
-                                                    <div key={producto.folio_producto} className="producto-card">
-                                                        <div className="producto-card__info">
-                                                            <div className="producto-card__header">
-                                                                <span className="producto-card__folio">{producto.folio_producto}</span>
-                                                                <span className="producto-card__nombre">{producto.nombre_producto || 'Sin nombre'}</span>
+                                                    return (
+                                                        <div
+                                                            key={producto.folio_producto}
+                                                            className={`producto-card ${sinStock ? 'agotado' : ''}`}
+                                                            style={{ opacity: sinStock ? 0.6 : 1 }}
+                                                        >
+                                                            <div className="producto-card__info">
+                                                                <div className="producto-card__header">
+                                                                    <span className="producto-card__folio">{producto.folio_producto}</span>
+                                                                    <span className="producto-card__nombre">{producto.nombre_producto || 'Sin nombre'}</span>
+                                                                    {sinStock && <span className="badge-agotado" style={{ marginLeft: '8px', fontSize: '0.7em', background: '#e74c3c', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>AGOTADO</span>}
+                                                                </div>
+                                                                <div className="producto-card__detalles">
+                                                                    <span className="producto-card__stock">{producto.stock_actual} unidades</span>
+                                                                    <span className="producto-card__tallas">{tallasTexto}</span>
+                                                                </div>
                                                             </div>
-                                                            <div className="producto-card__detalles">
-                                                                <span className="producto-card__stock">{producto.stock_actual} unidades</span>
-                                                                <span className="producto-card__tallas">{tallasTexto}</span>
+                                                            <div className="producto-card__precio">
+                                                                {formatearMoneda(producto.ultimo_precio || 0)}
+                                                            </div>
+                                                            <div className="producto-card__acciones">
+                                                                <button
+                                                                    className="btn-vender"
+                                                                    disabled={sinStock}
+                                                                    style={{ opacity: sinStock ? 0.5 : 1, cursor: sinStock ? 'not-allowed' : 'pointer' }}
+                                                                    onClick={() => {
+                                                                        if (!sinStock) {
+                                                                            setProductoSeleccionado(producto)
+                                                                            setMostrarFormulario(true)
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <ShoppingBag size={16} />
+                                                                    Vender
+                                                                </button>
+                                                                <button
+                                                                    className="btn-historial"
+                                                                    onClick={() => setProductoHistorial(producto)}
+                                                                >
+                                                                    <History size={16} />
+                                                                </button>
                                                             </div>
                                                         </div>
-                                                        <div className="producto-card__precio">
-                                                            {formatearMoneda(producto.ultimo_precio || 0)}
-                                                        </div>
-                                                        <div className="producto-card__acciones">
-                                                            <button
-                                                                className="btn-vender"
-                                                                onClick={() => {
-                                                                    setProductoSeleccionado(producto)
-                                                                    setMostrarFormulario(true)
-                                                                }}
-                                                            >
-                                                                <ShoppingBag size={16} />
-                                                                Vender
-                                                            </button>
-                                                            <button
-                                                                className="btn-historial"
-                                                                onClick={() => setProductoHistorial(producto)}
-                                                            >
-                                                                <History size={16} />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })}
+                                                    )
+                                                })
+                                            )}
                                         </div>
                                     )}
                                 </div>

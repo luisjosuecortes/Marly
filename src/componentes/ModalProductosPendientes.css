@@ -318,7 +318,8 @@
   margin-left: 0.25rem;
 }
 
-.input-abono-compacto input {
+.input-abono-compacto input,
+.input-abono-compacto select {
   background: rgba(15, 23, 42, 0.5);
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 6px;
@@ -327,6 +328,11 @@
   font-size: 0.875rem;
   transition: all 0.2s;
   width: 100%;
+}
+
+.input-abono-compacto select option {
+  background-color: #0f172a;
+  color: #e2e8f0;
 }
 
 .input-abono-compacto input:focus {

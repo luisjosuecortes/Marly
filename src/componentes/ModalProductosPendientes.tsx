@@ -133,6 +133,7 @@ export function ModalProductosPendientes({
       setSaldoActual(prev => prev - monto) // Actualizar saldo en tiempo real
       await cargarProductos()
       onActualizar()
+      window.dispatchEvent(new CustomEvent('ventas-actualizadas'))
     } catch (err: any) {
       setError(err?.message || 'Error al registrar el abono')
     } finally {
@@ -175,6 +176,7 @@ export function ModalProductosPendientes({
       setSaldoActual(prev => prev - monto) // Actualizar saldo en tiempo real
       await cargarProductos()
       onActualizar()
+      window.dispatchEvent(new CustomEvent('ventas-actualizadas'))
     } catch (err: any) {
       setError(err?.message || 'Error al registrar el abono general')
     } finally {
@@ -246,54 +248,12 @@ export function ModalProductosPendientes({
           </div>
         )}
 
-        {mostrarAbonoGeneral && (
-          <div className="formulario-abono-general">
-            <h4>
-              <DollarSign size={16} />
-              Abonar al Saldo Huérfano
-            </h4>
-            <div className="fila-abono">
-              <div className="input-abono-compacto">
-                <label className="label-abono">
-                  Monto (Máx: {formatearMoneda(saldoHuerfano)})
-                </label>
-                <input
-                  type="number"
-                  step="50"
-                  min="0.01"
-                  max={saldoHuerfano}
-                  value={montoAbono}
-                  onChange={(e) => setMontoAbono(e.target.value)}
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="input-abono-compacto">
-                <label className="label-abono">Responsable</label>
-                <select
-                  value={responsable}
-                  onChange={(e) => setResponsable(e.target.value)}
-                >
-                  <option value="">Seleccionar...</option>
-                  {responsables.map((r) => (
-                    <option key={r.id_responsable} value={r.nombre}>{r.nombre}</option>
-                  ))}
-                </select>
-              </div>
-              <button
-                className="btn-confirmar-abono-compacto"
-                onClick={manejarAbonoGeneral}
-                disabled={guardando || !montoAbono || !responsable.trim()}
-              >
-                {guardando ? '...' : 'Confirmar Abono'}
-              </button>
-            </div>
-          </div>
-        )}
+
 
         <div className="contenido-productos-pendientes">
           {cargando ? (
             <div className="cargando">Cargando productos pendientes...</div>
-          ) : productos.length === 0 ? (
+          ) : productos.length === 0 && saldoHuerfano <= 0.01 ? (
             <div className="sin-productos">
               <CheckCircle2 size={48} strokeWidth={1} style={{ opacity: 0.3, marginBottom: '1rem' }} />
               <p>No hay productos pendientes para este cliente.</p>

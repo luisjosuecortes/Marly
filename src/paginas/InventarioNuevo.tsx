@@ -109,7 +109,25 @@ export function InventarioNuevo() {
                 window.ipcRenderer.getProductosBajoStock()
             ])
             setKpis(kpisData)
-            setCategorias(categoriasData)
+
+            // Combinar categorías obtenidas con la lista completa para asegurar que se muestren todas
+            const categoriasMap = new Map(categoriasData.map((c: any) => [c.categoria, c]))
+            const categoriasCompletas = Object.keys(iconosCategorias).map(nombreCategoria => {
+                const datosExistentes = categoriasMap.get(nombreCategoria)
+                if (datosExistentes) return datosExistentes
+
+                // Si no hay datos, retornar objeto vacío con valores en 0
+                return {
+                    categoria: nombreCategoria,
+                    numProductos: 0,
+                    totalUnidades: 0,
+                    valorCosto: 0,
+                    valorVenta: 0,
+                    gananciaProyectada: 0
+                }
+            })
+
+            setCategorias(categoriasCompletas)
             setMovimientos(movimientosData)
             setProductosAlerta(alertasData)
         } catch (error) {
@@ -296,7 +314,11 @@ export function InventarioNuevo() {
                     </h2>
                     <div className="categorias-grid">
                         {categorias.map((cat) => (
-                            <div key={cat.categoria} className={`categoria-card ${categoriaExpandida === cat.categoria ? 'expandida' : ''}`}>
+                            <div
+                                key={cat.categoria}
+                                className={`categoria-card ${categoriaExpandida === cat.categoria ? 'expandida' : ''} ${cat.numProductos === 0 ? 'vacia' : ''}`}
+                                style={{ opacity: cat.numProductos === 0 ? 0.6 : 1 }}
+                            >
                                 <div className="categoria-header" onClick={() => toggleCategoria(cat.categoria)}>
                                     <div className="categoria-icono">
                                         {iconosCategorias[cat.categoria] || '📦'}
@@ -354,7 +376,7 @@ export function InventarioNuevo() {
                                                 {productosFiltrados.length === 0 ? (
                                                     <div className="sin-productos">
                                                         <Search size={32} strokeWidth={1} style={{ opacity: 0.5 }} />
-                                                        <p>No se encontraron productos</p>
+                                                        <p>{cat.numProductos === 0 ? 'Sin historial de productos' : 'No se encontraron productos'}</p>
                                                     </div>
                                                 ) : (
                                                     <div className="tabla-scroll">

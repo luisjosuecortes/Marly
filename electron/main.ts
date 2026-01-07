@@ -95,6 +95,54 @@ const initDb = () => {
 
 initDb()
 
+// Migración para actualizar la restricción CHECK en movimientos_cliente
+const migrateDatabase = () => {
+  try {
+    // Verificar si la tabla ya tiene la restricción actualizada
+    const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='movimientos_cliente'").get() as any
+    if (tableInfo && !tableInfo.sql.includes("'reembolso'")) {
+      console.log('Migrando tabla movimientos_cliente para permitir reembolsos...')
+
+      db.transaction(() => {
+        // 1. Renombrar tabla actual
+        db.prepare("ALTER TABLE movimientos_cliente RENAME TO movimientos_cliente_old").run()
+
+        // 2. Crear nueva tabla con la restricción actualizada
+        db.prepare(`
+          CREATE TABLE movimientos_cliente (
+            id_movimiento INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_cliente INTEGER NOT NULL,
+            fecha TEXT NOT NULL,
+            tipo_movimiento TEXT NOT NULL,
+            monto REAL NOT NULL,
+            referencia TEXT,
+            responsable TEXT,
+            FOREIGN KEY (id_cliente) REFERENCES clientes (id_cliente) ON UPDATE CASCADE ON DELETE CASCADE,
+            CHECK (monto >= 0),
+            CHECK (tipo_movimiento IN ('cargo', 'abono', 'reembolso', 'devolucion'))
+          )
+        `).run()
+
+        // 3. Copiar datos
+        db.prepare(`
+          INSERT INTO movimientos_cliente (id_movimiento, id_cliente, fecha, tipo_movimiento, monto, referencia, responsable)
+          SELECT id_movimiento, id_cliente, fecha, tipo_movimiento, monto, referencia, responsable
+          FROM movimientos_cliente_old
+        `).run()
+
+        // 4. Eliminar tabla antigua
+        db.prepare("DROP TABLE movimientos_cliente_old").run()
+      })()
+
+      console.log('Migración completada exitosamente.')
+    }
+  } catch (error) {
+    console.error('Error durante la migración de base de datos:', error)
+  }
+}
+
+migrateDatabase()
+
 // IPC Handlers para la base de datos
 ipcMain.handle('get-productos', () => {
   try {
@@ -992,11 +1040,21 @@ ipcMain.handle('registrar-abono-cliente', (_event, datos) => {
       ? `Abono - Venta #${id_venta}${notas ? ` - ${notas}` : ''}`
       : `Abono general${notas ? ` - ${notas}` : ''}`
 
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const hours = String(now.getHours()).padStart(2, '0')
+    const minutes = String(now.getMinutes()).padStart(2, '0')
+    const seconds = String(now.getSeconds()).padStart(2, '0')
+    const fechaLocal = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+
     db.prepare(`
       INSERT INTO movimientos_cliente (id_cliente, fecha, tipo_movimiento, monto, referencia, responsable)
-      VALUES (@id_cliente, CURRENT_TIMESTAMP, 'abono', @monto, @referencia, @responsable)
+      VALUES (@id_cliente, @fecha, 'abono', @monto, @referencia, @responsable)
     `).run({
       id_cliente,
+      fecha: fechaLocal,
       monto,
       referencia,
       responsable: responsable || null
@@ -1365,9 +1423,9 @@ ipcMain.handle('registrar-venta', (_event, datos) => {
 })
 
 // Eliminar una venta y revertir stock y movimientos del cliente
-ipcMain.handle('eliminar-venta', (_event, id_venta) => {
-  const eliminar = db.transaction(() => {
-    // 1. Obtener datos de la venta antes de eliminarla
+ipcMain.handle('devolver-venta', (_event, id_venta, responsable) => {
+  const devolver = db.transaction(() => {
+    // 1. Obtener datos de la venta
     const venta = db.prepare(`
       SELECT 
         folio_producto,
@@ -1384,6 +1442,19 @@ ipcMain.handle('eliminar-venta', (_event, id_venta) => {
     if (!venta) {
       throw new Error('Venta no encontrada.')
     }
+
+    if (venta.tipo_salida === 'Devolución') {
+      throw new Error('Esta venta ya fue devuelta.')
+    }
+
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const hours = String(now.getHours()).padStart(2, '0')
+    const minutes = String(now.getMinutes()).padStart(2, '0')
+    const seconds = String(now.getSeconds()).padStart(2, '0')
+    const fechaLocal = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
 
     // 2. Revertir stock del producto
     db.prepare(`
@@ -1414,7 +1485,6 @@ ipcMain.handle('eliminar-venta', (_event, id_venta) => {
         talla: venta.talla
       })
     } else {
-      // Si no existe el registro, crearlo
       db.prepare(`
         INSERT INTO tallas_producto (folio_producto, talla, cantidad, fecha_actualizacion)
         VALUES (@folio, @talla, @cantidad, CURRENT_TIMESTAMP)
@@ -1425,24 +1495,54 @@ ipcMain.handle('eliminar-venta', (_event, id_venta) => {
       })
     }
 
-    // 4. Si es crédito o apartado, revertir movimientos del cliente
+    // 4. Si es crédito o apartado, manejar movimientos del cliente
     if (venta.id_cliente && (venta.tipo_salida === 'Crédito' || venta.tipo_salida === 'Apartado')) {
       const montoTotal = (venta.precio_unitario_real * venta.cantidad_vendida) - (venta.descuento_aplicado || 0)
 
       // Obtener todos los abonos relacionados con esta venta
-      const abonos = db.prepare(`
-        SELECT COALESCE(SUM(monto), 0) as total_abonado
+      const abonosResult = db.prepare(`
+        SELECT id_movimiento, monto, referencia
         FROM movimientos_cliente
         WHERE id_cliente = ?
           AND tipo_movimiento = 'abono'
           AND (referencia LIKE ? OR referencia LIKE ?)
-      `).get(venta.id_cliente, `%Venta #${id_venta}%`, `Abono inicial - Venta #${id_venta}%`) as any
+      `).all(venta.id_cliente, `%Venta #${id_venta}%`, `Abono inicial - Venta #${id_venta}%`) as any[]
 
-      const totalAbonado = abonos?.total_abonado || 0
-      const saldoARevertir = montoTotal - totalAbonado
+      let totalReembolsado = 0
 
-      // Revertir el saldo pendiente del cliente
-      if (saldoARevertir > 0) {
+      // Convertir cada abono a reembolso
+      for (const abono of abonosResult) {
+        totalReembolsado += abono.monto
+
+        // Actualizar el movimiento existente a reembolso
+        db.prepare(`
+          UPDATE movimientos_cliente
+          SET tipo_movimiento = 'reembolso',
+              referencia = @nuevaReferencia,
+              fecha = @fecha
+          WHERE id_movimiento = @id_movimiento
+        `).run({
+          id_movimiento: abono.id_movimiento,
+          nuevaReferencia: `Reembolso - ${abono.referencia}`,
+          fecha: fechaLocal
+        })
+      }
+
+      // Agregar movimiento de devolución para cancelar el cargo original
+      db.prepare(`
+        INSERT INTO movimientos_cliente (id_cliente, fecha, tipo_movimiento, monto, referencia, responsable)
+        VALUES (@id_cliente, @fecha, 'devolucion', @monto, @referencia, @responsable)
+      `).run({
+        id_cliente: venta.id_cliente,
+        fecha: fechaLocal,
+        monto: montoTotal,
+        referencia: `Devolución - Venta #${id_venta}`,
+        responsable: responsable || null
+      })
+
+      // Ajustar saldo del cliente: restar el cargo original y devolver los reembolsos
+      const saldoARestar = montoTotal - totalReembolsado
+      if (saldoARestar !== 0) {
         db.prepare(`
           UPDATE clientes 
           SET saldo_pendiente = saldo_pendiente - @monto,
@@ -1452,65 +1552,24 @@ ipcMain.handle('eliminar-venta', (_event, id_venta) => {
               END
           WHERE id_cliente = @id_cliente
         `).run({
-          monto: saldoARevertir,
+          monto: saldoARestar,
           id_cliente: venta.id_cliente
         })
       }
-
-      // Eliminar todos los movimientos relacionados con esta venta
-      db.prepare(`
-        DELETE FROM movimientos_cliente
-        WHERE id_cliente = ?
-          AND (referencia LIKE ? OR referencia LIKE ?)
-      `).run(venta.id_cliente, `%Venta #${id_venta}%`, `Abono inicial - Venta #${id_venta}%`)
     }
 
-    // 5. Si es apartado o prestado, revertir estado del producto
-    if (venta.tipo_salida === 'Apartado' || venta.tipo_salida === 'Prestado') {
-      // Obtener el estado anterior del historial de estados
-      const ultimoEstado = db.prepare(`
-        SELECT estado_anterior 
-        FROM estados_producto
-        WHERE folio_producto = ?
-          AND estado_nuevo = ?
-        ORDER BY fecha_cambio DESC
-        LIMIT 1
-      `).get(venta.folio_producto, venta.tipo_salida) as any
-
-      const estadoNuevo = ultimoEstado?.estado_anterior || 'Disponible'
-
-      db.prepare(`
-        UPDATE productos 
-        SET estado_producto = @estadoNuevo
-        WHERE folio_producto = @folio
-      `).run({
-        estadoNuevo,
-        folio: venta.folio_producto
-      })
-
-      // Registrar cambio de estado
-      db.prepare(`
-        INSERT INTO estados_producto (folio_producto, fecha_cambio, estado_anterior, estado_nuevo, motivo, responsable)
-        VALUES (@folio, CURRENT_TIMESTAMP, @estadoAnterior, @estadoNuevo, @motivo, @responsable)
-      `).run({
-        folio: venta.folio_producto,
-        estadoAnterior: venta.tipo_salida,
-        estadoNuevo,
-        motivo: 'Venta eliminada - Estado revertido',
-        responsable: null
-      })
-    } else if (venta.tipo_salida === 'Crédito') {
-      // Para crédito, verificar si el producto está en estado Crédito y revertirlo
+    // 5. Revertir estado del producto si aplica
+    if (venta.tipo_salida === 'Apartado' || venta.tipo_salida === 'Prestado' || venta.tipo_salida === 'Crédito') {
       const producto = db.prepare('SELECT estado_producto FROM productos WHERE folio_producto = ?').get(venta.folio_producto) as any
-      if (producto?.estado_producto === 'Crédito') {
+      if (producto?.estado_producto === venta.tipo_salida) {
         const ultimoEstado = db.prepare(`
           SELECT estado_anterior 
           FROM estados_producto
           WHERE folio_producto = ?
-            AND estado_nuevo = 'Crédito'
+            AND estado_nuevo = ?
           ORDER BY fecha_cambio DESC
           LIMIT 1
-        `).get(venta.folio_producto) as any
+        `).get(venta.folio_producto, venta.tipo_salida) as any
 
         const estadoNuevo = ultimoEstado?.estado_anterior || 'Disponible'
 
@@ -1525,24 +1584,27 @@ ipcMain.handle('eliminar-venta', (_event, id_venta) => {
 
         db.prepare(`
           INSERT INTO estados_producto (folio_producto, fecha_cambio, estado_anterior, estado_nuevo, motivo, responsable)
-          VALUES (@folio, CURRENT_TIMESTAMP, 'Crédito', @estadoNuevo, 'Venta eliminada - Estado revertido', NULL)
+          VALUES (@folio, @fecha, @estadoAnterior, @estadoNuevo, 'Devolución de venta', @responsable)
         `).run({
           folio: venta.folio_producto,
-          estadoNuevo
+          fecha: fechaLocal,
+          estadoAnterior: venta.tipo_salida,
+          estadoNuevo,
+          responsable: responsable || null
         })
       }
     }
 
-    // 6. Eliminar la venta
+    // 6. Eliminar la venta completamente
     db.prepare('DELETE FROM ventas WHERE id_venta = ?').run(id_venta)
 
     return { success: true }
   })
 
   try {
-    return eliminar()
+    return devolver()
   } catch (error: any) {
-    console.error('Error al eliminar venta:', error)
+    console.error('Error al devolver venta:', error)
     throw error
   }
 })

@@ -138,7 +138,24 @@ export function EntradasNuevo() {
                 window.ipcRenderer.getProveedores()
             ])
             setKpis(kpisData)
-            setCategorias(categoriasData)
+
+            // Combinar categorías obtenidas con la lista completa
+            const categoriasMap = new Map(categoriasData.map((c: any) => [c.categoria, c]))
+            const categoriasCompletas = Object.keys(iconosCategorias).map(nombreCategoria => {
+                const datosExistentes = categoriasMap.get(nombreCategoria)
+                if (datosExistentes) return datosExistentes
+
+                // Si no hay datos, retornar objeto vacío con valores en 0
+                return {
+                    categoria: nombreCategoria,
+                    num_entradas: 0,
+                    total_unidades: 0,
+                    inversion_total: 0,
+                    valor_venta: 0
+                }
+            })
+
+            setCategorias(categoriasCompletas)
             setEntradasRecientes(recientesData)
             setProveedores(proveedoresData)
         } catch (error) {
@@ -432,7 +449,11 @@ export function EntradasNuevo() {
                     <h2 className="seccion-titulo"><BoxIcon size={20} /> Entradas por Categoría ({categorias.length})</h2>
                     <div className="categorias-grid">
                         {categorias.map((cat) => (
-                            <div key={cat.categoria} className={`categoria-card ${categoriaExpandida === cat.categoria ? 'expandida' : ''}`}>
+                            <div
+                                key={cat.categoria}
+                                className={`categoria-card ${categoriaExpandida === cat.categoria ? 'expandida' : ''} ${cat.num_entradas === 0 ? 'vacia' : ''}`}
+                                style={{ opacity: cat.num_entradas === 0 ? 0.6 : 1 }}
+                            >
                                 <div className="categoria-header" onClick={() => toggleCategoria(cat.categoria)}>
                                     <div className="categoria-icono">{iconosCategorias[cat.categoria] || '📦'}</div>
                                     <div className="categoria-info">
@@ -466,7 +487,10 @@ export function EntradasNuevo() {
                                                 </div>
 
                                                 {productosFiltrados.length === 0 ? (
-                                                    <div className="sin-productos"><Search size={32} strokeWidth={1} /><p>No se encontraron productos</p></div>
+                                                    <div className="sin-productos">
+                                                        <Search size={32} strokeWidth={1} />
+                                                        <p>{cat.num_entradas === 0 ? 'Sin historial de entradas' : 'No se encontraron productos'}</p>
+                                                    </div>
                                                 ) : (
                                                     <div className="tabla-scroll">
                                                         <table className="tabla-inventario">

@@ -50,7 +50,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   getProductosDisponibles: () => ipcRenderer.invoke('get-productos-disponibles'),
   registrarVenta: (datos: any) => ipcRenderer.invoke('registrar-venta', datos),
   getPrecioVentaPorTalla: (datos: { folio_producto: string, talla: string }) => ipcRenderer.invoke('get-precio-venta-por-talla', datos),
-  eliminarVenta: (id_venta: number) => ipcRenderer.invoke('eliminar-venta', id_venta),
+  devolverVenta: (id_venta: number, responsable?: string) => ipcRenderer.invoke('devolver-venta', id_venta, responsable),
   eliminarMovimientoCliente: (id_movimiento: number) => ipcRenderer.invoke('eliminar-movimiento-cliente', id_movimiento),
   // Estadísticas
   getEstadisticasResumen: (filtro?: { fechaInicio?: string, fechaFin?: string }) => ipcRenderer.invoke('get-estadisticas-resumen', filtro || {}),
