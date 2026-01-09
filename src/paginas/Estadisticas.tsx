@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { TrendingUp, DollarSign, Package, Users, Calendar, RefreshCw } from 'lucide-react'
+import { TrendingUp, DollarSign, Package, Users, Calendar } from 'lucide-react'
 import Plot from 'react-plotly.js'
 import './Estadisticas.css'
 
@@ -498,9 +498,7 @@ export function Estadisticas() {
                 </div>
               )}
             </div>
-            <button className="btn-refresh" onClick={cargarDatos} disabled={cargando}>
-              <RefreshCw size={16} className={cargando ? 'spinning' : ''} />
-            </button>
+
           </div>
         </div>
 

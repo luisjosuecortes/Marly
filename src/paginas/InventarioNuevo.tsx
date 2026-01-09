@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Package, TrendingUp, DollarSign, AlertTriangle, Search, Filter, ChevronDown, ChevronUp, History, Edit2, BoxIcon, Clock, Calendar, ArrowDownCircle, ArrowUpCircle } from 'lucide-react'
+import { Package, TrendingUp, DollarSign, AlertTriangle, Search, Filter, ChevronDown, ChevronUp, History, Edit2, BoxIcon, Clock, Calendar, ArrowDownCircle, ArrowUpCircle, RefreshCw } from 'lucide-react'
 import { ModalAjuste } from '../componentes/ModalAjuste'
 import { ModalHistorialInventario } from '../componentes/ModalHistorialInventario'
 import './InventarioNuevo.css'
@@ -86,6 +86,16 @@ export function InventarioNuevo() {
     const [busqueda, setBusqueda] = useState('')
     const [filtroGenero, setFiltroGenero] = useState('Todos')
     const [filtroTalla, setFiltroTalla] = useState('Todas')
+
+    // Período de visualización
+    const [periodoVista, setPeriodoVista] = useState<'actual' | 'mes' | 'anio' | 'personalizado'>('actual')
+    const [mostrarSelectorFecha, setMostrarSelectorFecha] = useState(false)
+    const [tipoPersonalizado, setTipoPersonalizado] = useState<'mes' | 'anio'>('mes')
+    const [fechaPersonalizada, setFechaPersonalizada] = useState({
+        mes: new Date().getMonth(),
+        anio: new Date().getFullYear()
+    })
+    const [refrescando, setRefrescando] = useState(false)
 
     // Modales
     const [productoAEditar, setProductoAEditar] = useState<Producto | null>(null)
@@ -260,7 +270,91 @@ export function InventarioNuevo() {
                         <p className="etiqueta">Gestión</p>
                         <h1 className="tabla-titulo">Inventario por Categorías</h1>
                     </div>
+                    <div className="header-acciones">
+                        <button
+                            className="btn-refresh"
+                            onClick={() => { setRefrescando(true); cargarDatos().finally(() => setRefrescando(false)) }}
+                            disabled={refrescando}
+                            title="Actualizar datos"
+                        >
+                            <RefreshCw size={18} className={refrescando ? 'spinning' : ''} />
+                        </button>
+                    </div>
+                </div>
 
+                {/* Toggle período */}
+                <div className="periodo-toggle">
+                    <button
+                        className={`btn-periodo ${periodoVista === 'actual' ? 'activo' : ''}`}
+                        onClick={() => { setPeriodoVista('actual'); setMostrarSelectorFecha(false) }}
+                    >
+                        Actual
+                    </button>
+                    <button
+                        className={`btn-periodo ${periodoVista === 'mes' ? 'activo' : ''}`}
+                        onClick={() => { setPeriodoVista('mes'); setMostrarSelectorFecha(false) }}
+                    >
+                        Este Mes
+                    </button>
+                    <button
+                        className={`btn-periodo ${periodoVista === 'anio' ? 'activo' : ''}`}
+                        onClick={() => { setPeriodoVista('anio'); setMostrarSelectorFecha(false) }}
+                    >
+                        Este Año
+                    </button>
+                    <div className="selector-personalizado">
+                        <button
+                            className={`btn-periodo ${periodoVista === 'personalizado' ? 'activo' : ''}`}
+                            onClick={() => setMostrarSelectorFecha(!mostrarSelectorFecha)}
+                        >
+                            <Calendar size={16} /> Personalizado ▼
+                        </button>
+                        {mostrarSelectorFecha && (
+                            <div className="dropdown-fecha">
+                                <div className="dropdown-grupo">
+                                    <label>Tipo</label>
+                                    <select value={tipoPersonalizado} onChange={(e) => setTipoPersonalizado(e.target.value as 'mes' | 'anio')}>
+                                        <option value="mes">Mes específico</option>
+                                        <option value="anio">Año específico</option>
+                                    </select>
+                                </div>
+                                {tipoPersonalizado === 'mes' && (
+                                    <div className="dropdown-grupo">
+                                        <label>Mes</label>
+                                        <select
+                                            value={fechaPersonalizada.mes}
+                                            onChange={(e) => setFechaPersonalizada(prev => ({ ...prev, mes: Number(e.target.value) }))}
+                                        >
+                                            {['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'].map((m, i) => (
+                                                <option key={i} value={i}>{m}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                                <div className="dropdown-grupo">
+                                    <label>Año</label>
+                                    <select
+                                        value={fechaPersonalizada.anio}
+                                        onChange={(e) => setFechaPersonalizada(prev => ({ ...prev, anio: Number(e.target.value) }))}
+                                    >
+                                        {Array.from({ length: new Date().getFullYear() - 2020 + 1 }, (_, i) => 2020 + i).map(y => (
+                                            <option key={y} value={y}>{y}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <button
+                                    className="btn-aplicar-fecha"
+                                    onClick={() => {
+                                        setPeriodoVista('personalizado')
+                                        setMostrarSelectorFecha(false)
+                                        cargarDatos()
+                                    }}
+                                >
+                                    Aplicar
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* KPIs Generales */}

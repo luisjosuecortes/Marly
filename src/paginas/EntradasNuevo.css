@@ -285,6 +285,7 @@
 .input-busqueda-inventario {
     flex: 1;
     min-width: 200px;
+    max-width: 400px;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -293,6 +294,7 @@
     border-radius: 10px;
     padding: 0.6rem 1rem;
     transition: all 0.2s ease;
+    overflow: hidden;
 }
 
 .input-busqueda-inventario:focus-within {
@@ -305,6 +307,7 @@
     border: none;
     color: #e2e8f0;
     flex: 1;
+    min-width: 0;
     font-size: 0.95rem;
     outline: none;
 }
