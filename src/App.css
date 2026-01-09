@@ -10,6 +10,78 @@
   padding-bottom: 2rem;
 }
 
+/* Modo cajera: con header pequeño */
+.contenedor-aplicacion.modo-cajera {
+  padding-top: 80px;
+}
+
+/* Header para modo cajera - solo logo */
+.encabezado-cajera {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0 3rem;
+  height: 80px;
+  background-color: transparent;
+  z-index: 10;
+  backdrop-filter: blur(4px);
+}
+
+.contenedor-logo-cajera {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.contenedor-logo-cajera .icono-logo {
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.5));
+}
+
+.contenedor-logo-cajera .texto-logo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: #fff;
+  text-transform: uppercase;
+  text-shadow: 0 0 20px rgba(56, 189, 248, 0.3);
+}
+
+/* Botón flotante de admin */
+.btn-admin-flotante {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  width: 48px;
+  height: 48px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 50%;
+  color: #a78bfa;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  opacity: 0.6;
+}
+
+.btn-admin-flotante:hover {
+  opacity: 1;
+  transform: scale(1.1);
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 8px 30px rgba(139, 92, 246, 0.3);
+}
+
+
 .pagina-contenido {
   width: 100%;
   max-width: 1600px;

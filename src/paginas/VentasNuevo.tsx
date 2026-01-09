@@ -56,7 +56,11 @@ export function VentasNuevo() {
     const [kpis, setKpis] = useState<VentasKpis>({ ventasHoy: 0, transaccionesHoy: 0, totalCobrado: 0 })
     const [transaccionesHoy, setTransaccionesHoy] = useState<TransaccionHoy[]>([])
     const [prendasPrestadas, setPrendasPrestadas] = useState<any[]>([])
-    const [cambio, setCambio] = useState<number>(0) // Fondo de caja inicial
+    const [cambio, setCambio] = useState<number>(() => {
+        // Cargar cambio guardado de localStorage
+        const cambioGuardado = localStorage.getItem('marly_cambio_caja')
+        return cambioGuardado ? Number(cambioGuardado) : 0
+    })
 
     const categorias = useMemo((): CategoriaVentas[] => {
         const grupos: Record<string, { productos: any[], totalUnidades: number, valorVenta: number }> = {}
@@ -121,6 +125,11 @@ export function VentasNuevo() {
         window.addEventListener('ventas-actualizadas', handleActualizacion)
         return () => window.removeEventListener('ventas-actualizadas', handleActualizacion)
     }, [])
+
+    // Guardar cambio en localStorage cuando cambie
+    useEffect(() => {
+        localStorage.setItem('marly_cambio_caja', String(cambio))
+    }, [cambio])
 
     // Efecto para búsqueda instantánea
     useEffect(() => {

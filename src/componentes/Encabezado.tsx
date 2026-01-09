@@ -1,3 +1,4 @@
+import { ShieldCheck, LogOut } from 'lucide-react'
 import './Encabezado.css'
 
 export type Pagina = 'ventas' | 'inventario' | 'entradas' | 'estadisticas'
@@ -5,9 +6,10 @@ export type Pagina = 'ventas' | 'inventario' | 'entradas' | 'estadisticas'
 interface PropsEncabezado {
   paginaActual: Pagina
   cambiarPagina: (pagina: Pagina) => void
+  cerrarSesionAdmin: () => void
 }
 
-export function Encabezado({ paginaActual, cambiarPagina }: PropsEncabezado) {
+export function Encabezado({ paginaActual, cambiarPagina, cerrarSesionAdmin }: PropsEncabezado) {
   return (
     <header className="encabezado">
       <div className="contenedor-logo">
@@ -27,6 +29,15 @@ export function Encabezado({ paginaActual, cambiarPagina }: PropsEncabezado) {
           <path d="M20.38 3.46L16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z" />
         </svg>
         <span className="texto-logo">Marly</span>
+        <span className="badge-admin">Admin</span>
+      </div>
+
+      <div className="acciones-header">
+        <button className="btn-admin-activo" onClick={cerrarSesionAdmin} title="Cerrar sesión de administrador">
+          <ShieldCheck size={18} />
+          <span>Salir</span>
+          <LogOut size={14} className="icono-salir" />
+        </button>
       </div>
 
       <nav className="navegacion">
