@@ -58,22 +58,25 @@ interface Window {
     }>>
     getVentasKpisHoy: () => Promise<{
       ventasHoy: number
+      transaccionesHoy: number
       totalCobrado: number
       pendientesHoy: number
       ticketPromedio: number
     }>
     getVentasHoy: () => Promise<Array<{
-      id_venta: number
-      fecha_venta: string
-      folio_producto: string
-      cantidad_vendida: number
-      talla: string
-      precio_unitario_real: number
-      descuento_aplicado: number
-      tipo_salida: string
+      id: number
+      fecha: string
+      tipo_transaccion: 'venta' | 'abono'
+      folio_producto: string | null
       nombre_producto: string | null
-      categoria: string
+      cantidad_vendida: number | null
+      talla: string | null
+      precio_unitario_real: number | null
+      descuento_aplicado: number | null
+      tipo_salida: string
+      categoria: string | null
       cliente: string | null
+      referencia?: string
       total: number
     }>>
     getPrendasPrestadas: () => Promise<Array<{

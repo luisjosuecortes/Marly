@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, Plus, Trash2, User, UserCheck, Search, History, DollarSign } from 'lucide-react'
 import { ModalHistorialCliente } from './ModalHistorialCliente'
 import { ModalProductosPendientes } from './ModalProductosPendientes'
+import { ModalAbonoRapido } from './ModalAbonoRapido'
 import { ModalResponsables } from './ModalResponsables'
 import './VistaClientes.css'
 
@@ -30,6 +31,7 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
   const [busqueda, setBusqueda] = useState('')
   const [mostrarHistorial, setMostrarHistorial] = useState<{ id: number; nombre: string } | null>(null)
   const [mostrarProductosPendientes, setMostrarProductosPendientes] = useState<{ id: number; nombre: string; saldo: number } | null>(null)
+  const [mostrarAbonoRapido, setMostrarAbonoRapido] = useState<{ id: number; nombre: string; saldo: number } | null>(null)
   const [mostrarResponsables, setMostrarResponsables] = useState(false)
 
   useEffect(() => {
@@ -228,12 +230,12 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
                             {(cliente.saldo_pendiente > 0 || cliente.estado_cuenta === 'Con saldo') && (
                               <button
                                 className="btn-productos-pendientes"
-                                onClick={() => setMostrarProductosPendientes({
+                                onClick={() => setMostrarAbonoRapido({
                                   id: cliente.id_cliente,
                                   nombre: cliente.nombre_completo,
                                   saldo: cliente.saldo_pendiente
                                 })}
-                                title="Ver productos pendientes y abonar"
+                                title="Abonar a cuenta"
                               >
                                 <DollarSign size={16} />
                               </button>
@@ -358,6 +360,16 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
           nombreCliente={mostrarProductosPendientes.nombre}
           saldoPendiente={mostrarProductosPendientes.saldo}
           alCerrar={() => setMostrarProductosPendientes(null)}
+          onActualizar={cargarClientes}
+        />
+      )}
+
+      {mostrarAbonoRapido && (
+        <ModalAbonoRapido
+          idCliente={mostrarAbonoRapido.id}
+          nombreCliente={mostrarAbonoRapido.nombre}
+          saldoPendiente={mostrarAbonoRapido.saldo}
+          alCerrar={() => setMostrarAbonoRapido(null)}
           onActualizar={cargarClientes}
         />
       )}

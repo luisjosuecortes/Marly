@@ -1,0 +1,297 @@
+.modal-abono-rapido {
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 420px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    animation: slideUp 0.25s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.abono-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.abono-header-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.abono-icono {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(99, 102, 241, 0.1) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #a78bfa;
+}
+
+.abono-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.abono-cliente {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.85rem;
+    color: #94a3b8;
+}
+
+.abono-error {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: rgba(239, 68, 68, 0.1);
+    border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    font-size: 0.85rem;
+}
+
+.abono-exito {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: rgba(34, 197, 94, 0.1);
+    border-bottom: 1px solid rgba(34, 197, 94, 0.2);
+    color: #4ade80;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.abono-saldo-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1.5rem;
+    background: rgba(15, 23, 42, 0.4);
+}
+
+.abono-saldo-label {
+    font-size: 0.85rem;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+.abono-saldo-valor {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #a78bfa;
+    font-feature-settings: "tnum";
+    margin-top: 0.5rem;
+}
+
+.abono-saldo-valor.pagado {
+    color: #22c55e;
+}
+
+.abono-form {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.abono-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.abono-campo label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.abono-input-container {
+    display: flex;
+    align-items: stretch;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: all 0.2s;
+}
+
+.abono-input-container:focus-within {
+    border-color: #a78bfa;
+    box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1);
+}
+
+.abono-input-prefix {
+    display: flex;
+    align-items: center;
+    padding: 0 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    color: #64748b;
+    font-weight: 600;
+    font-size: 1.1rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.abono-input-container input {
+    flex: 1;
+    padding: 0.85rem 1rem;
+    background: transparent;
+    border: none;
+    color: #f8fafc;
+    font-size: 1.25rem;
+    font-weight: 600;
+    font-feature-settings: "tnum";
+}
+
+.abono-input-container input:focus {
+    outline: none;
+}
+
+.abono-input-container input::placeholder {
+    color: #475569;
+}
+
+.btn-abonar-todo {
+    padding: 0 1rem;
+    background: rgba(139, 92, 246, 0.15);
+    border: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    color: #a78bfa;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-abonar-todo:hover:not(:disabled) {
+    background: rgba(139, 92, 246, 0.25);
+    color: #c4b5fd;
+}
+
+.btn-abonar-todo:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.abono-campo select {
+    padding: 0.85rem 1rem;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: #f8fafc;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.abono-campo select:focus {
+    outline: none;
+    border-color: #a78bfa;
+    box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1);
+}
+
+.abono-campo select option {
+    background: #1e293b;
+    color: #f8fafc;
+}
+
+.abono-resumen {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+.abono-resumen-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+    color: #94a3b8;
+}
+
+.abono-resumen-row:not(:last-child) {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.abono-resumen-row .abono-monto {
+    color: #22c55e;
+    font-weight: 600;
+}
+
+.abono-resumen-total {
+    font-weight: 700;
+    color: #f8fafc;
+    font-size: 1rem;
+}
+
+.abono-resumen-total span:last-child {
+    color: #a78bfa;
+}
+
+.abono-resumen-total span:last-child.pagado {
+    color: #22c55e;
+}
+
+.btn-confirmar-abono {
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-confirmar-abono:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3);
+}
+
+.btn-confirmar-abono:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.abono-completado {
+    padding: 3rem 1.5rem;
+    text-align: center;
+}
+
+.abono-completado-icono {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.abono-completado p {
+    color: #94a3b8;
+    font-size: 1rem;
+    margin: 0;
+}

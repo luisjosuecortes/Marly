@@ -2779,13 +2779,26 @@ ipcMain.handle('get-ventas-kpis-hoy', () => {
 
     const totalCobrado = cobradoVentas + cobradoAbonos
 
+    // 4. Contar número de abonos (transacciones de abono)
+    const resultNumAbonos = db.prepare(`
+      SELECT COUNT(*) as num_abonos
+      FROM movimientos_cliente
+      WHERE lower(tipo_movimiento) = 'abono'
+        AND fecha >= ? AND fecha <= ?
+    `).get(inicioHoy, finHoy) as any
+    const numAbonos = resultNumAbonos?.num_abonos || 0
+
+    // Total de transacciones = ventas + abonos
+    const transaccionesHoy = ventasHoy + numAbonos
+
     // Ticket promedio
     const ticketPromedio = ventasHoy > 0 ? totalCobrado / ventasHoy : 0
 
-    console.log(`[KPIs] Fecha: ${fechaHoy}, Ventas: ${ventasHoy}, Cobrado: ${cobradoVentas}, Abonos: ${cobradoAbonos}, Total: ${totalCobrado}`)
+    console.log(`[KPIs] Fecha: ${fechaHoy}, Ventas: ${ventasHoy}, Abonos: ${numAbonos}, Transacciones: ${transaccionesHoy}, Cobrado: ${cobradoVentas}, AbonosMonto: ${cobradoAbonos}, Total: ${totalCobrado}`)
 
     return {
       ventasHoy,
+      transaccionesHoy,
       totalCobrado,
       pendientesHoy: 0,
       ticketPromedio
@@ -2794,6 +2807,7 @@ ipcMain.handle('get-ventas-kpis-hoy', () => {
     console.error('Error al obtener KPIs de ventas:', error)
     return {
       ventasHoy: 0,
+      transaccionesHoy: 0,
       totalCobrado: 0,
       pendientesHoy: 0,
       ticketPromedio: 0
@@ -2834,7 +2848,7 @@ ipcMain.handle('get-ventas-recientes', (_event, limite: number = 15) => {
   }
 })
 
-// Ventas de hoy (todas)
+// Ventas y transacciones de hoy (todas)
 ipcMain.handle('get-ventas-hoy', (_event) => {
   try {
     const now = new Date()
@@ -2843,6 +2857,7 @@ ipcMain.handle('get-ventas-hoy', (_event) => {
     const fechaInicio = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).toLocaleString('sv')
     const fechaFin = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59).toLocaleString('sv')
 
+    // Obtener ventas del día
     const ventas = db.prepare(`
       SELECT 
         v.id_venta,
@@ -2863,10 +2878,62 @@ ipcMain.handle('get-ventas-hoy', (_event) => {
       ORDER BY v.fecha_venta DESC
     `).all(fechaInicio, fechaFin)
 
-    return ventas.map((v: any) => ({
-      ...v,
+    // Obtener abonos del día
+    const abonos = db.prepare(`
+      SELECT 
+        m.id_movimiento,
+        m.fecha,
+        m.monto,
+        m.tipo_movimiento,
+        m.referencia,
+        c.nombre_completo as cliente
+      FROM movimientos_cliente m
+      LEFT JOIN clientes c ON m.id_cliente = c.id_cliente
+      WHERE lower(m.tipo_movimiento) = 'abono'
+        AND m.fecha >= ? AND m.fecha <= ?
+      ORDER BY m.fecha DESC
+    `).all(fechaInicio, fechaFin)
+
+    // Mapear ventas a formato uniforme
+    const ventasFormateadas = ventas.map((v: any) => ({
+      id: v.id_venta,
+      fecha: v.fecha_venta,
+      tipo_transaccion: 'venta',
+      folio_producto: v.folio_producto,
+      nombre_producto: v.nombre_producto,
+      cantidad_vendida: v.cantidad_vendida,
+      talla: v.talla,
+      precio_unitario_real: v.precio_unitario_real,
+      descuento_aplicado: v.descuento_aplicado,
+      tipo_salida: v.tipo_salida,
+      categoria: v.categoria,
+      cliente: v.cliente,
       total: (v.precio_unitario_real - (v.descuento_aplicado || 0)) * v.cantidad_vendida
     }))
+
+    // Mapear abonos a formato uniforme
+    const abonosFormateados = abonos.map((a: any) => ({
+      id: a.id_movimiento,
+      fecha: a.fecha,
+      tipo_transaccion: 'abono',
+      folio_producto: null,
+      nombre_producto: null,
+      cantidad_vendida: null,
+      talla: null,
+      precio_unitario_real: null,
+      descuento_aplicado: null,
+      tipo_salida: 'Abono',
+      categoria: null,
+      cliente: a.cliente,
+      referencia: a.referencia,
+      total: a.monto
+    }))
+
+    // Combinar y ordenar por fecha descendente
+    const transacciones = [...ventasFormateadas, ...abonosFormateados]
+      .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+
+    return transacciones
   } catch (error) {
     console.error('Error al obtener ventas de hoy:', error)
     return []
