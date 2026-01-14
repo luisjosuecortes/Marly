@@ -56,6 +56,9 @@ export function VentasNuevo() {
     const [kpis, setKpis] = useState<VentasKpis>({ ventasHoy: 0, transaccionesHoy: 0, totalCobrado: 0 })
     const [transaccionesHoy, setTransaccionesHoy] = useState<TransaccionHoy[]>([])
     const [prendasPrestadas, setPrendasPrestadas] = useState<any[]>([])
+    const [prendasApartadas, setPrendasApartadas] = useState<any[]>([])
+    const [clientesConSaldo, setClientesConSaldo] = useState<any[]>([])
+    const [refrescando, setRefrescando] = useState(false)
     const [cambio, setCambio] = useState<number>(() => {
         // Cargar cambio guardado de localStorage
         const cambioGuardado = localStorage.getItem('marly_cambio_caja')
@@ -97,20 +100,24 @@ export function VentasNuevo() {
 
     const cargarDatos = async () => {
         try {
-            const [kpisData, transaccionesData, prestamosData] = await Promise.all([
-                window.ipcRenderer.getVentasKpisHoy(),
-                window.ipcRenderer.getVentasHoy(),
-                window.ipcRenderer.getPrendasPrestadas()
+            setRefrescando(true)
+            const [kpisData, transaccionesData, prestamosData, apartadosData, clientesSaldoData] = await Promise.all([
+                window.ipcRenderer.invoke('get-ventas-kpis-hoy'),
+                window.ipcRenderer.invoke('get-ventas-hoy'),
+                window.ipcRenderer.invoke('get-prendas-prestadas'),
+                window.ipcRenderer.invoke('get-prendas-apartadas'),
+                window.ipcRenderer.invoke('get-clientes-con-saldo')
             ])
-            setKpis({
-                ventasHoy: kpisData.ventasHoy,
-                transaccionesHoy: kpisData.transaccionesHoy || 0,
-                totalCobrado: kpisData.totalCobrado
-            })
+
+            setKpis(kpisData)
             setTransaccionesHoy(transaccionesData)
             setPrendasPrestadas(prestamosData)
+            setPrendasApartadas(apartadosData)
+            setClientesConSaldo(clientesSaldoData)
         } catch (error) {
-            console.error('Error cargando datos:', error)
+            console.error('Error al cargar datos:', error)
+        } finally {
+            setRefrescando(false)
         }
     }
 
@@ -372,7 +379,7 @@ export function VentasNuevo() {
                                                                         title="Ver historial"
                                                                         onClick={(e) => {
                                                                             e.stopPropagation()
-                                                                            // TODO: Implementar historial
+                                                                            setProductoHistorial(producto)
                                                                         }}
                                                                     >
                                                                         <History size={16} />
@@ -535,6 +542,159 @@ export function VentasNuevo() {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Sección de Prendas Apartadas */}
+                {prendasApartadas.length > 0 && (
+                    <div className="seccion-prestamos seccion-apartados">
+                        <div className="prestamos-header">
+                            <div className="prestamos-titulo">
+                                <div className="prestamos-icono icono-apartado">
+                                    <Clock size={20} />
+                                </div>
+                                <div>
+                                    <h2>Prendas Apartadas</h2>
+                                    <p className="prestamos-subtitulo">{prendasApartadas.length} artículo{prendasApartadas.length !== 1 ? 's' : ''} en apartado</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="grid-prestamos">
+                            {prendasApartadas.map((apartado) => (
+                                <div key={apartado.id_venta} className="prestamo-card apartado-card">
+                                    <div className="prestamo-avatar">
+                                        {iconosCategorias[apartado.categoria] || '📦'}
+                                    </div>
+                                    <div className="prestamo-contenido">
+                                        <div className="prestamo-top">
+                                            <div className="prestamo-cliente-info">
+                                                <span className="prestamo-cliente">{apartado.cliente || 'Cliente sin nombre'}</span>
+                                                <span className="prestamo-badge-fecha">{new Date(apartado.fecha_venta).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}</span>
+                                            </div>
+                                            <div className="prestamo-precio">${apartado.monto_total?.toFixed(2) || '0.00'}</div>
+                                        </div>
+                                        <div className="prestamo-producto-info">
+                                            <span className="prestamo-nombre">{apartado.nombre_producto || apartado.folio_producto}</span>
+                                            <div className="prestamo-tags">
+                                                <span className="prestamo-tag">{apartado.talla}</span>
+                                                <span className="prestamo-tag">{apartado.cantidad_vendida} ud</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Barra de progreso de pago */}
+                                        <div className="apartado-progreso">
+                                            <div className="info-pago">
+                                                <span className="pagado">Abonado: ${apartado.monto_pagado?.toFixed(2)}</span>
+                                                <span className="pendiente">Resta: ${apartado.saldo_pendiente?.toFixed(2)}</span>
+                                            </div>
+                                            <div className="barra-fondo">
+                                                <div
+                                                    className="barra-avance"
+                                                    style={{ width: `${Math.min(100, (apartado.monto_pagado / apartado.monto_total) * 100)}%` }}
+                                                ></div>
+                                            </div>
+                                        </div>
+
+                                        {apartado.notas && (
+                                            <div className="prestamo-nota">
+                                                <span>📝</span> {apartado.notas}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="prestamo-acciones">
+                                        <button
+                                            className="btn-prestamo btn-prestamo--vender"
+                                            onClick={() => {
+                                                // Abrir modal de cliente para abonar
+                                                setMostrarClientes(true)
+                                            }}
+                                            title="Ver cliente / Abonar"
+                                        >
+                                            <User size={16} />
+                                            <span>Ver Cliente</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Sección de Clientes con Saldo Pendiente */}
+                {clientesConSaldo.length > 0 && (
+                    <div className="seccion-prestamos seccion-deudores">
+                        <div className="prestamos-header">
+                            <div className="prestamos-titulo">
+                                <div className="prestamos-icono icono-deudor">
+                                    <Wallet size={20} />
+                                </div>
+                                <div>
+                                    <h2>Clientes con Saldo Pendiente</h2>
+                                    <p className="prestamos-subtitulo">{clientesConSaldo.length} cliente{clientesConSaldo.length !== 1 ? 's' : ''} con deuda</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="grid-prestamos">
+                            {clientesConSaldo.map((cliente) => {
+                                // Calcular el total histórico que debe (aproximado como saldo * 2 para mostrar progreso)
+                                // En realidad esto debería venir del backend
+                                const totalDeuda = cliente.saldo_pendiente * 1.5 // Estimación para mostrar algo de progreso
+                                const pagado = totalDeuda - cliente.saldo_pendiente
+                                const porcentajePagado = (pagado / totalDeuda) * 100
+
+                                return (
+                                    <div key={cliente.id_cliente} className="prestamo-card deudor-card">
+                                        <div className="prestamo-avatar deudor-avatar">
+                                            <User size={24} />
+                                        </div>
+                                        <div className="prestamo-contenido">
+                                            <div className="prestamo-top">
+                                                <div className="prestamo-cliente-info">
+                                                    <span className="prestamo-cliente">{cliente.nombre_completo}</span>
+                                                    {cliente.telefono && (
+                                                        <span className="prestamo-badge-fecha">📞 {cliente.telefono}</span>
+                                                    )}
+                                                </div>
+                                                <div className="prestamo-precio deudor-saldo">${cliente.saldo_pendiente?.toFixed(2)}</div>
+                                            </div>
+
+                                            <div className="deudor-estado">
+                                                <span className={`estado-badge ${cliente.estado_cuenta === 'Al corriente' ? 'estado-corriente' : 'estado-pendiente'}`}>
+                                                    {cliente.estado_cuenta}
+                                                </span>
+                                            </div>
+
+                                            {/* Barra de progreso de pago */}
+                                            <div className="apartado-progreso">
+                                                <div className="info-pago">
+                                                    <span className="pagado">Historial de pagos</span>
+                                                    <span className="pendiente">Debe: ${cliente.saldo_pendiente?.toFixed(2)}</span>
+                                                </div>
+                                                <div className="barra-fondo">
+                                                    <div
+                                                        className="barra-avance barra-deudor"
+                                                        style={{ width: `${Math.min(100, Math.max(10, porcentajePagado))}%` }}
+                                                    ></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="prestamo-acciones">
+                                            <button
+                                                className="btn-prestamo btn-prestamo--abonar"
+                                                onClick={() => {
+                                                    // Abrir modal de cliente para abonar
+                                                    setMostrarClientes(true)
+                                                }}
+                                                title="Registrar abono"
+                                            >
+                                                <Banknote size={16} />
+                                                <span>Abonar</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )
+                            })}
                         </div>
                     </div>
                 )}

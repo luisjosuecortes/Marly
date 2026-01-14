@@ -48,7 +48,7 @@ interface ClienteSaldo {
 
 export function Estadisticas() {
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState<'hoy' | 'semana' | 'mes' | 'anio' | 'personalizado'>('mes')
-  const [cargando, setCargando] = useState(true)
+  const [_cargando, setCargando] = useState(true)
 
   // Custom date selection
   const [mostrarSelectorFecha, setMostrarSelectorFecha] = useState(false)

@@ -2406,6 +2406,70 @@ ipcMain.handle("get-prendas-prestadas", (_event) => {
     return [];
   }
 });
+ipcMain.handle("get-prendas-apartadas", (_event) => {
+  var _a;
+  try {
+    const apartados = db.prepare(`
+      SELECT 
+        v.id_venta,
+        v.fecha_venta,
+        v.folio_producto,
+        v.cantidad_vendida,
+        v.talla,
+        v.precio_unitario_real,
+        v.descuento_aplicado,
+        v.tipo_salida,
+        v.notas,
+        p.nombre_producto,
+        p.categoria,
+        c.id_cliente,
+        c.nombre_completo as cliente,
+        c.telefono,
+        c.saldo_pendiente as cliente_saldo_pendiente
+      FROM ventas v
+      LEFT JOIN productos p ON v.folio_producto = p.folio_producto
+      LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
+      WHERE v.tipo_salida = 'Apartado'
+      ORDER BY v.fecha_venta ASC
+    `).all();
+    const apartadosPorCliente = {};
+    for (const apartado of apartados) {
+      if (apartado.id_cliente) {
+        if (!apartadosPorCliente[apartado.id_cliente]) {
+          apartadosPorCliente[apartado.id_cliente] = [];
+        }
+        apartadosPorCliente[apartado.id_cliente].push(apartado);
+      }
+    }
+    const resultado = [];
+    for (const [idCliente, apartadosCliente] of Object.entries(apartadosPorCliente)) {
+      let totalApartados = 0;
+      for (const ap of apartadosCliente) {
+        totalApartados += ap.precio_unitario_real * ap.cantidad_vendida - (ap.descuento_aplicado || 0);
+      }
+      const saldoPendiente = ((_a = apartadosCliente[0]) == null ? void 0 : _a.cliente_saldo_pendiente) || 0;
+      let montoPagadoDisponible = totalApartados - saldoPendiente;
+      for (const apartado of apartadosCliente) {
+        const montoTotal = apartado.precio_unitario_real * apartado.cantidad_vendida - (apartado.descuento_aplicado || 0);
+        const montoPagadoEste = Math.min(montoTotal, Math.max(0, montoPagadoDisponible));
+        montoPagadoDisponible -= montoPagadoEste;
+        if (montoTotal - montoPagadoEste > 0.01) {
+          resultado.push({
+            ...apartado,
+            monto_total: montoTotal,
+            monto_pagado: montoPagadoEste,
+            saldo_pendiente: montoTotal - montoPagadoEste
+          });
+        }
+      }
+    }
+    resultado.sort((a, b) => new Date(b.fecha_venta).getTime() - new Date(a.fecha_venta).getTime());
+    return resultado;
+  } catch (error) {
+    console.error("Error al obtener prendas apartadas:", error);
+    return [];
+  }
+});
 ipcMain.handle("procesar-devolucion-prestamo", (_event, id_venta) => {
   const devolver = db.transaction(() => {
     const venta = db.prepare(`

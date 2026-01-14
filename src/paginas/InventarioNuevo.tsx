@@ -271,14 +271,7 @@ export function InventarioNuevo() {
                         <h1 className="tabla-titulo">Inventario por Categorías</h1>
                     </div>
                     <div className="header-acciones">
-                        <button
-                            className="btn-refresh"
-                            onClick={() => { setRefrescando(true); cargarDatos().finally(() => setRefrescando(false)) }}
-                            disabled={refrescando}
-                            title="Actualizar datos"
-                        >
-                            <RefreshCw size={18} className={refrescando ? 'spinning' : ''} />
-                        </button>
+
                     </div>
                 </div>
 

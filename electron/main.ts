@@ -2972,6 +2972,90 @@ ipcMain.handle('get-prendas-prestadas', (_event) => {
   }
 })
 
+// Obtener prendas apartadas
+ipcMain.handle('get-prendas-apartadas', (_event) => {
+  try {
+    const apartados = db.prepare(`
+      SELECT 
+        v.id_venta,
+        v.fecha_venta,
+        v.folio_producto,
+        v.cantidad_vendida,
+        v.talla,
+        v.precio_unitario_real,
+        v.descuento_aplicado,
+        v.tipo_salida,
+        v.notas,
+        p.nombre_producto,
+        p.categoria,
+        c.id_cliente,
+        c.nombre_completo as cliente,
+        c.telefono,
+        c.saldo_pendiente as cliente_saldo_pendiente
+      FROM ventas v
+      LEFT JOIN productos p ON v.folio_producto = p.folio_producto
+      LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
+      WHERE v.tipo_salida = 'Apartado'
+      ORDER BY v.fecha_venta ASC
+    `).all() as any[]
+
+    // Agrupar apartados por cliente
+    const apartadosPorCliente: Record<number, any[]> = {}
+    for (const apartado of apartados) {
+      if (apartado.id_cliente) {
+        if (!apartadosPorCliente[apartado.id_cliente]) {
+          apartadosPorCliente[apartado.id_cliente] = []
+        }
+        apartadosPorCliente[apartado.id_cliente].push(apartado)
+      }
+    }
+
+    // Procesar cada cliente
+    const resultado: any[] = []
+
+    for (const [idCliente, apartadosCliente] of Object.entries(apartadosPorCliente)) {
+      // Calcular el total de todos los apartados del cliente
+      let totalApartados = 0
+      for (const ap of apartadosCliente) {
+        totalApartados += (ap.precio_unitario_real * ap.cantidad_vendida) - (ap.descuento_aplicado || 0)
+      }
+
+      // Obtener el saldo pendiente actual del cliente
+      const saldoPendiente = apartadosCliente[0]?.cliente_saldo_pendiente || 0
+
+      // El monto total pagado es: total de apartados - saldo pendiente actual
+      let montoPagadoDisponible = totalApartados - saldoPendiente
+
+      // Distribuir pagos en orden FIFO (primero los más antiguos)
+      for (const apartado of apartadosCliente) {
+        const montoTotal = (apartado.precio_unitario_real * apartado.cantidad_vendida) - (apartado.descuento_aplicado || 0)
+
+        // Cuánto de este apartado se puede pagar con el dinero disponible
+        const montoPagadoEste = Math.min(montoTotal, Math.max(0, montoPagadoDisponible))
+        montoPagadoDisponible -= montoPagadoEste
+
+        // Solo agregar si aún tiene saldo pendiente (no está completamente pagado)
+        if (montoTotal - montoPagadoEste > 0.01) {
+          resultado.push({
+            ...apartado,
+            monto_total: montoTotal,
+            monto_pagado: montoPagadoEste,
+            saldo_pendiente: montoTotal - montoPagadoEste
+          })
+        }
+      }
+    }
+
+    // Ordenar por fecha descendente para mostrar los más recientes primero
+    resultado.sort((a, b) => new Date(b.fecha_venta).getTime() - new Date(a.fecha_venta).getTime())
+
+    return resultado
+  } catch (error) {
+    console.error('Error al obtener prendas apartadas:', error)
+    return []
+  }
+})
+
 // Procesar devolución de préstamo
 ipcMain.handle('procesar-devolucion-prestamo', (_event, id_venta) => {
   const devolver = db.transaction(() => {
