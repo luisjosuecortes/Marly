@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Package, TrendingUp, DollarSign, AlertTriangle, Search, Filter, ChevronDown, ChevronUp, History, Edit2, BoxIcon, Clock, Calendar, ArrowDownCircle, ArrowUpCircle, RefreshCw } from 'lucide-react'
+import { Package, TrendingUp, DollarSign, AlertTriangle, Search, Filter, ChevronDown, ChevronUp, History, Edit2, BoxIcon, Clock, Calendar, ArrowDownCircle, ArrowUpCircle } from 'lucide-react'
 import { ModalAjuste } from '../componentes/ModalAjuste'
 import { ModalHistorialInventario } from '../componentes/ModalHistorialInventario'
 import './InventarioNuevo.css'
@@ -34,7 +34,7 @@ interface Producto {
     stock_minimo: number
     proveedor: string | null
     fecha_ultima_actualizacion: string
-    tallas_detalle: { talla: string; cantidad: number }[]
+    tallas_detalle: { talla: string; color: string; cantidad: number }[]
     ultimo_precio?: number
     ultimo_costo?: number
 }
@@ -46,6 +46,7 @@ interface MovimientoInventario {
     folio_producto: string
     cantidad: number
     talla: string
+    color?: string
     costo: number | null
     precio: number
     tipo_movimiento: string
@@ -95,7 +96,6 @@ export function InventarioNuevo() {
         mes: new Date().getMonth(),
         anio: new Date().getFullYear()
     })
-    const [refrescando, setRefrescando] = useState(false)
 
     // Modales
     const [productoAEditar, setProductoAEditar] = useState<Producto | null>(null)
@@ -486,7 +486,7 @@ export function InventarioNuevo() {
                                                                         <td>{producto.nombre_producto || '—'}</td>
                                                                         <td>{producto.genero_destino}</td>
                                                                         <td className="celda-tallas">
-                                                                            {producto.tallas_detalle?.map(t => `${t.talla}: ${t.cantidad}`).join(', ') || '—'}
+                                                                            {producto.tallas_detalle?.map(t => `${t.talla}${t.color && t.color !== 'Único' ? ` (${t.color})` : ''}: ${t.cantidad}`).join(', ') || '—'}
                                                                         </td>
                                                                         <td className="celda-stock">{producto.stock_actual}</td>
                                                                         <td className="celda-precio">{formatearMoneda(producto.ultimo_precio || 0)}</td>
@@ -570,7 +570,7 @@ export function InventarioNuevo() {
                                                 <span className="nombre">{mov.nombre_producto || '—'}</span>
                                             </div>
                                             <div className="timeline-detalles">
-                                                <span className="talla">{mov.talla}</span>
+                                                <span className="talla">{mov.talla}{mov.color && mov.color !== 'Único' ? ` - ${mov.color}` : ''}</span>
                                                 <span className={`cantidad ${mov.tipo}`}>
                                                     {mov.tipo === 'entrada' ? '+' : '-'}{mov.cantidad}
                                                 </span>

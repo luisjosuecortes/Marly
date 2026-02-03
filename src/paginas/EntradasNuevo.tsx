@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Package, TrendingUp, DollarSign, Plus, Building2, Search, Filter, ChevronDown, ChevronUp, History, BoxIcon, Clock, Calendar, ArrowDownCircle, X, Save, AlertCircle, Trash2 } from 'lucide-react'
+import { Package, TrendingUp, DollarSign, Plus, Building2, Search, Filter, ChevronDown, ChevronUp, History, BoxIcon, Clock, Calendar, ArrowDownCircle, X, Save, AlertCircle, Trash2, UserCheck } from 'lucide-react'
 import { ModalProveedores } from '../componentes/ModalProveedores'
 import { ModalHistorialEntradas } from '../componentes/ModalHistorialEntradas.tsx'
+import { ModalResponsables } from '../componentes/ModalResponsables'
 import './EntradasNuevo.css'
 
 interface EntradasKpis {
@@ -50,6 +51,7 @@ interface EntradaReciente {
 
 interface TallaEntrada {
     talla: string
+    color: string
     cantidad: number
     costo: number
     precio: number
@@ -68,6 +70,11 @@ const TALLAS = [
     '2', '3', '4', '6', '8', '10', '12', '14', '16',
     '24/3', '26/5', '28/7', '30/9', '31', '32 (11)', '33', '34 (13)', '35', '36 (15)', '38 (17)',
     '40', '42', '44', '46', '48', 'Unitalla'
+]
+
+const COLORES = [
+    'Único', 'Negro', 'Blanco', 'Gris', 'Rojo', 'Azul', 'Marino', 'Verde',
+    'Rosa', 'Morado', 'Café', 'Beige', 'Amarillo', 'Naranja', 'Vino'
 ]
 
 const iconosCategorias: Record<string, string> = {
@@ -102,6 +109,7 @@ export function EntradasNuevo() {
     // Modales
     const [mostrarFormulario, setMostrarFormulario] = useState(false)
     const [mostrarProveedores, setMostrarProveedores] = useState(false)
+    const [mostrarResponsables, setMostrarResponsables] = useState(false)
     const [productoHistorial, setProductoHistorial] = useState<Producto | null>(null)
 
     // Filtro de categorías para timeline
@@ -125,7 +133,7 @@ export function EntradasNuevo() {
     })
 
     const [tallasEntrada, setTallasEntrada] = useState<TallaEntrada[]>([
-        { talla: TALLAS[0], cantidad: 1, costo: 0, precio: 0 }
+        { talla: TALLAS[0], color: COLORES[0], cantidad: 1, costo: 0, precio: 0 }
     ])
 
     const cargarDatos = async () => {
@@ -207,7 +215,7 @@ export function EntradasNuevo() {
                     const ultimaEntrada = await window.ipcRenderer.getUltimaEntrada(producto.folio_producto)
                     if (ultimaEntrada) {
                         setTallasEntrada([{
-                            talla: TALLAS[0], cantidad: 1,
+                            talla: TALLAS[0], color: COLORES[0], cantidad: 1,
                             costo: ultimaEntrada.costo_unitario_proveedor,
                             precio: ultimaEntrada.precio_unitario_base
                         }])
@@ -269,7 +277,7 @@ export function EntradasNuevo() {
 
     const agregarTalla = () => {
         const ultima = tallasEntrada[tallasEntrada.length - 1]
-        setTallasEntrada([...tallasEntrada, { talla: TALLAS[0], cantidad: 1, costo: ultima?.costo || 0, precio: ultima?.precio || 0 }])
+        setTallasEntrada([...tallasEntrada, { talla: TALLAS[0], color: ultima?.color || COLORES[0], cantidad: 1, costo: ultima?.costo || 0, precio: ultima?.precio || 0 }])
     }
 
     const quitarTalla = (index: number) => {
@@ -299,7 +307,7 @@ export function EntradasNuevo() {
                 responsable: 'Admin'
             })
             setProducto({ folio_producto: '', nombre_producto: '', categoria: CATEGORIAS[0], genero_destino: GENEROS[1], proveedor: '', observaciones: '' })
-            setTallasEntrada([{ talla: TALLAS[0], cantidad: 1, costo: 0, precio: 0 }])
+            setTallasEntrada([{ talla: TALLAS[0], color: COLORES[0], cantidad: 1, costo: 0, precio: 0 }])
             setEsExistente(false)
             setMostrarFormulario(false)
             setExito(true)
@@ -342,6 +350,9 @@ export function EntradasNuevo() {
                         <h1 className="tabla-titulo">Entradas de Mercancía</h1>
                     </div>
                     <div className="header-acciones">
+                        <button className="accion-secundaria" onClick={() => setMostrarResponsables(true)}>
+                            <UserCheck size={18} /> Responsables
+                        </button>
                         <button className="accion-secundaria" onClick={() => setMostrarProveedores(true)}>
                             <Building2 size={18} /> Proveedores
                         </button>
@@ -665,14 +676,17 @@ export function EntradasNuevo() {
 
                             <div className="seccion-form">
                                 <div className="seccion-header">
-                                    <h3>Tallas y Precios</h3>
-                                    <button type="button" className="btn-agregar-talla" onClick={agregarTalla}><Plus size={16} /> Agregar Talla</button>
+                                    <h3>Tallas, Colores y Precios</h3>
+                                    <button type="button" className="btn-agregar-talla" onClick={agregarTalla}><Plus size={16} /> Agregar Variante</button>
                                 </div>
                                 <div className="tallas-lista">
                                     {tallasEntrada.map((t, i) => (
                                         <div key={i} className="talla-row">
                                             <select value={t.talla} onChange={(e) => actualizarTalla(i, 'talla', e.target.value)}>
                                                 {TALLAS.map(talla => <option key={talla} value={talla}>{talla}</option>)}
+                                            </select>
+                                            <select value={t.color} onChange={(e) => actualizarTalla(i, 'color', e.target.value)} className="select-color">
+                                                {COLORES.map(color => <option key={color} value={color}>{color}</option>)}
                                             </select>
                                             <input type="number" min="1" value={t.cantidad} onChange={(e) => actualizarTalla(i, 'cantidad', parseInt(e.target.value) || 0)} />
                                             <div className="input-moneda"><span>$</span><input type="number" min="0" step="50" value={t.costo === 0 ? '' : t.costo} onChange={(e) => actualizarTalla(i, 'costo', parseFloat(e.target.value) || 0)} /></div>
@@ -695,6 +709,7 @@ export function EntradasNuevo() {
             )}
 
             {mostrarProveedores && <ModalProveedores alCerrar={() => { setMostrarProveedores(false); cargarDatos() }} />}
+            {mostrarResponsables && <ModalResponsables alCerrar={() => setMostrarResponsables(false)} />}
         </div>
     )
 }

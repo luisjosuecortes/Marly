@@ -675,3 +675,148 @@
 .chip-remove:hover {
     background: rgba(239, 68, 68, 0.4);
 }
+
+/* Timeline Section */
+.timeline-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.timeline-container {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+.sin-entradas {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    color: #64748b;
+    gap: 0.5rem;
+}
+
+.timeline-lista {
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.timeline-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background 0.2s ease;
+}
+
+.timeline-item:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.timeline-item:last-child {
+    border-bottom: none;
+}
+
+.timeline-item.timeline-abono {
+    background: rgba(34, 197, 94, 0.05);
+    border-left: 3px solid #22c55e;
+}
+
+.timeline-fecha {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 150px;
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.timeline-contenido {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.timeline-producto {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.timeline-producto .folio {
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: #64748b;
+}
+
+.timeline-producto .nombre {
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.timeline-detalles {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    font-size: 0.85rem;
+    flex-wrap: wrap;
+}
+
+.timeline-detalles .talla {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.timeline-detalles .cantidad {
+    color: #e2e8f0;
+    font-weight: 600;
+}
+
+.timeline-detalles .tipo-venta {
+    background: rgba(148, 163, 184, 0.1);
+    color: #94a3b8;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+.timeline-detalles .referencia {
+    color: #94a3b8;
+    font-style: italic;
+}
+
+.timeline-detalles .total {
+    color: #22c55e;
+    font-weight: 700;
+    margin-left: auto;
+}
+
+.timeline-detalles .total.abono {
+    color: #22c55e;
+}
+
+.timeline-meta {
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.timeline-meta .categoria {
+    background: rgba(148, 163, 184, 0.1);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+}
+
+.timeline-meta .cliente {
+    color: #94a3b8;
+}

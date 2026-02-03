@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS entradas (
   folio_producto TEXT NOT NULL,
   cantidad_recibida INTEGER NOT NULL,
   talla TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT 'Único',
   costo_unitario_proveedor REAL NOT NULL,
   precio_unitario_base REAL NOT NULL,
   precio_unitario_promocion REAL,
@@ -45,6 +46,7 @@ CREATE TABLE IF NOT EXISTS ventas (
   folio_producto TEXT NOT NULL,
   cantidad_vendida INTEGER NOT NULL,
   talla TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT 'Único',
   precio_unitario_real REAL NOT NULL,
   descuento_aplicado REAL DEFAULT 0,
   tipo_salida TEXT NOT NULL DEFAULT 'Venta',
@@ -84,11 +86,12 @@ CREATE TABLE IF NOT EXISTS tallas_producto (
   id_talla INTEGER PRIMARY KEY AUTOINCREMENT,
   folio_producto TEXT NOT NULL,
   talla TEXT NOT NULL,
+  color TEXT NOT NULL DEFAULT 'Único',
   cantidad INTEGER NOT NULL DEFAULT 0,
   fecha_actualizacion TEXT DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (folio_producto) REFERENCES productos (folio_producto) ON UPDATE CASCADE ON DELETE CASCADE,
   CHECK (cantidad >= 0),
-  UNIQUE (folio_producto, talla)
+  UNIQUE (folio_producto, talla, color)
 );
 
 CREATE TABLE IF NOT EXISTS proveedores (

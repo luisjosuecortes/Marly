@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
-import { X, Plus, Trash2, User, UserCheck, Search, History, DollarSign } from 'lucide-react'
+import { X, Plus, Trash2, User, Search, History, DollarSign } from 'lucide-react'
 import { ModalHistorialCliente } from './ModalHistorialCliente'
 import { ModalProductosPendientes } from './ModalProductosPendientes'
 import { ModalAbonoRapido } from './ModalAbonoRapido'
-import { ModalResponsables } from './ModalResponsables'
 import './VistaClientes.css'
 
 interface Cliente {
@@ -32,7 +31,7 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
   const [mostrarHistorial, setMostrarHistorial] = useState<{ id: number; nombre: string } | null>(null)
   const [mostrarProductosPendientes, setMostrarProductosPendientes] = useState<{ id: number; nombre: string; saldo: number } | null>(null)
   const [mostrarAbonoRapido, setMostrarAbonoRapido] = useState<{ id: number; nombre: string; saldo: number } | null>(null)
-  const [mostrarResponsables, setMostrarResponsables] = useState(false)
+
 
   useEffect(() => {
     cargarClientes()
@@ -127,32 +126,8 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
               <p className="etiqueta">Gestión</p>
               <h1 className="tabla-titulo">Clientes</h1>
             </div>
-            {mostrarFormulario ? (
-              <div className="barra-busqueda">
-                <div className="input-busqueda">
-                  <Search size={16} />
-                  <input
-                    type="text"
-                    placeholder="Buscar por nombre o teléfono..."
-                    value={busqueda}
-                    onChange={(e) => setBusqueda(e.target.value)}
-                  />
-                </div>
-                {busqueda && (
-                  <button className="btn-limpiar" onClick={() => setBusqueda('')}>
-                    Limpiar
-                  </button>
-                )}
-              </div>
-            ) : (
+            {!mostrarFormulario && (
               <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-                <button
-                  className="boton-cerrar-vista"
-                  onClick={alCerrar}
-                  title="Volver a Ventas"
-                >
-                  <X size={18} />
-                </button>
                 <button
                   className="accion-primaria"
                   onClick={() => setMostrarFormulario(true)}
@@ -161,15 +136,36 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
                   Añadir Cliente
                 </button>
                 <button
-                  className="btn-secundario"
-                  onClick={() => setMostrarResponsables(true)}
+                  className="boton-cerrar-vista"
+                  onClick={alCerrar}
+                  title="Volver a Ventas"
                 >
-                  <UserCheck size={18} />
-                  Responsables
+                  <X size={18} />
                 </button>
               </div>
             )}
           </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <div className="barra-busqueda" style={{ maxWidth: '100%', width: '100%', flex: 'none' }}>
+              <div className="input-busqueda">
+                <Search size={16} />
+                <input
+                  type="text"
+                  placeholder="Buscar cliente por nombre o teléfono..."
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              {busqueda && (
+                <button className="btn-limpiar" onClick={() => setBusqueda('')}>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
 
           <div className="tabla-contenedor">
             {cargando ? (
@@ -346,38 +342,39 @@ export function VistaClientes({ alCerrar }: PropsVistaClientes) {
         )}
       </div>
 
-      {mostrarHistorial && (
-        <ModalHistorialCliente
-          idCliente={mostrarHistorial.id}
-          nombreCliente={mostrarHistorial.nombre}
-          alCerrar={() => setMostrarHistorial(null)}
-        />
-      )}
+      {
+        mostrarHistorial && (
+          <ModalHistorialCliente
+            idCliente={mostrarHistorial.id}
+            nombreCliente={mostrarHistorial.nombre}
+            alCerrar={() => setMostrarHistorial(null)}
+          />
+        )
+      }
 
-      {mostrarProductosPendientes && (
-        <ModalProductosPendientes
-          idCliente={mostrarProductosPendientes.id}
-          nombreCliente={mostrarProductosPendientes.nombre}
-          saldoPendiente={mostrarProductosPendientes.saldo}
-          alCerrar={() => setMostrarProductosPendientes(null)}
-          onActualizar={cargarClientes}
-        />
-      )}
+      {
+        mostrarProductosPendientes && (
+          <ModalProductosPendientes
+            idCliente={mostrarProductosPendientes.id}
+            nombreCliente={mostrarProductosPendientes.nombre}
+            saldoPendiente={mostrarProductosPendientes.saldo}
+            alCerrar={() => setMostrarProductosPendientes(null)}
+            onActualizar={cargarClientes}
+          />
+        )
+      }
 
-      {mostrarAbonoRapido && (
-        <ModalAbonoRapido
-          idCliente={mostrarAbonoRapido.id}
-          nombreCliente={mostrarAbonoRapido.nombre}
-          saldoPendiente={mostrarAbonoRapido.saldo}
-          alCerrar={() => setMostrarAbonoRapido(null)}
-          onActualizar={cargarClientes}
-        />
-      )}
-
-      {mostrarResponsables && (
-        <ModalResponsables alCerrar={() => setMostrarResponsables(false)} />
-      )}
-    </div>
+      {
+        mostrarAbonoRapido && (
+          <ModalAbonoRapido
+            idCliente={mostrarAbonoRapido.id}
+            nombreCliente={mostrarAbonoRapido.nombre}
+            saldoPendiente={mostrarAbonoRapido.saldo}
+            alCerrar={() => setMostrarAbonoRapido(null)}
+            onActualizar={cargarClientes}
+          />
+        )
+      }
+    </div >
   )
 }
-

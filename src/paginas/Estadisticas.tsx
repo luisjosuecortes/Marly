@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { TrendingUp, DollarSign, Package, Users, Calendar } from 'lucide-react'
+import { TrendingUp, DollarSign, Package, Users, Calendar, Clock } from 'lucide-react'
 import Plot from 'react-plotly.js'
 import './Estadisticas.css'
 
@@ -46,6 +46,24 @@ interface ClienteSaldo {
   estado_cuenta: string
 }
 
+interface TransaccionPeriodo {
+  id: number
+  fecha: string
+  tipo_transaccion: 'venta' | 'abono'
+  folio_producto: string | null
+  nombre_producto: string | null
+  cantidad_vendida: number | null
+  talla: string | null
+  color: string | null
+  precio_unitario_real: number | null
+  descuento_aplicado: number | null
+  tipo_salida: string
+  categoria: string | null
+  cliente: string | null
+  referencia?: string
+  total: number
+}
+
 export function Estadisticas() {
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState<'hoy' | 'semana' | 'mes' | 'anio' | 'personalizado'>('mes')
   const [_cargando, setCargando] = useState(true)
@@ -65,6 +83,7 @@ export function Estadisticas() {
   const [ventasCategoria, setVentasCategoria] = useState<VentaCategoria[]>([])
   const [ventasTipo, setVentasTipo] = useState<VentaTipo[]>([])
   const [clientesConSaldo, setClientesConSaldo] = useState<ClienteSaldo[]>([])
+  const [transaccionesPeriodo, setTransaccionesPeriodo] = useState<TransaccionPeriodo[]>([])
 
   // Comparison chart state
   const getCurrentMonth = () => {
@@ -182,14 +201,16 @@ export function Estadisticas() {
         productosData,
         categoriasData,
         tiposData,
-        clientesData
+        clientesData,
+        transaccionesData
       ] = await Promise.all([
         window.ipcRenderer.getEstadisticasResumen({ fechaInicio, fechaFin }),
         window.ipcRenderer.getVentasPorPeriodo({ fechaInicio, fechaFin, agrupacion: agrupacionActual }),
         window.ipcRenderer.getProductosMasVendidos({ fechaInicio, fechaFin, limite: 5 }),
         window.ipcRenderer.getVentasPorCategoria({ fechaInicio, fechaFin }),
         window.ipcRenderer.getVentasPorTipo({ fechaInicio, fechaFin }),
-        window.ipcRenderer.getClientesConSaldo()
+        window.ipcRenderer.getClientesConSaldo(),
+        window.ipcRenderer.getVentasPorRango({ fechaInicio, fechaFin, limite: 50 })
       ])
 
       setResumen(resumenData)
@@ -198,6 +219,7 @@ export function Estadisticas() {
       setVentasCategoria(categoriasData)
       setVentasTipo(tiposData)
       setClientesConSaldo(clientesData)
+      setTransaccionesPeriodo(transaccionesData)
     } catch (error) {
       console.error('Error cargando estadísticas:', error)
     } finally {
@@ -382,6 +404,20 @@ export function Estadisticas() {
       style: 'currency',
       currency: 'MXN'
     }).format(valor)
+  }
+
+  const formatearFechaTimeline = (fecha: string) => {
+    try {
+      return new Date(fecha).toLocaleDateString('es-MX', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    } catch {
+      return fecha
+    }
   }
 
   const colores = {
@@ -694,6 +730,59 @@ export function Estadisticas() {
                 />
               ) : (<div className="sin-datos">Sin datos</div>)}
             </div>
+          </div>
+        </div>
+
+        {/* Timeline de transacciones del período */}
+        <div className="timeline-section">
+          <h2 className="seccion-titulo"><Clock size={20} /> Historial de Transacciones del Período</h2>
+          <div className="timeline-container">
+            {transaccionesPeriodo.length === 0 ? (
+              <div className="sin-entradas">
+                <Package size={40} strokeWidth={1} />
+                <p>No hay transacciones en este período</p>
+              </div>
+            ) : (
+              <div className="timeline-lista">
+                {transaccionesPeriodo.map((t) => (
+                  <div key={`${t.tipo_transaccion}-${t.id}`} className={`timeline-item ${t.tipo_transaccion === 'abono' ? 'timeline-abono' : ''}`}>
+                    <div className="timeline-fecha">
+                      <Calendar size={14} /> {formatearFechaTimeline(t.fecha)}
+                    </div>
+                    <div className="timeline-contenido">
+                      <div className="timeline-producto">
+                        {t.tipo_transaccion === 'venta' ? (
+                          <>
+                            <span className="folio">{t.folio_producto}</span>
+                            <span className="nombre">{t.nombre_producto || '—'}</span>
+                          </>
+                        ) : (
+                          <span className="nombre">Abono de Cliente</span>
+                        )}
+                      </div>
+                      <div className="timeline-detalles">
+                        {t.tipo_transaccion === 'venta' ? (
+                          <>
+                            <span className="talla">{t.talla}{t.color && t.color !== 'Único' ? ` - ${t.color}` : ''}</span>
+                            <span className="cantidad">×{t.cantidad_vendida}</span>
+                            <span className="tipo-venta">{t.tipo_salida}</span>
+                          </>
+                        ) : (
+                          <span className="referencia">{t.referencia || 'Pago a cuenta'}</span>
+                        )}
+                        <span className={`total ${t.tipo_transaccion === 'abono' ? 'abono' : ''}`}>
+                          {formatearMoneda(t.total)}
+                        </span>
+                      </div>
+                      <div className="timeline-meta">
+                        {t.categoria && <span className="categoria">{t.categoria}</span>}
+                        {t.cliente && <span className="cliente">{t.cliente}</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

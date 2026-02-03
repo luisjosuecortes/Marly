@@ -100,7 +100,7 @@ ipcMain.handle("get-productos", () => {
     const stmt = db.prepare(`
       SELECT 
         p.*, 
-        json_group_array(json_object('talla', tp.talla, 'cantidad', tp.cantidad)) as tallas_detalle,
+        json_group_array(json_object('talla', tp.talla, 'color', tp.color, 'cantidad', tp.cantidad)) as tallas_detalle,
         (SELECT precio_unitario_base FROM entradas WHERE folio_producto = p.folio_producto ORDER BY id_entrada DESC LIMIT 1) as ultimo_precio
       FROM productos p
       LEFT JOIN tallas_producto tp ON p.folio_producto = tp.folio_producto
@@ -403,7 +403,7 @@ ipcMain.handle("get-producto-detalle", (_event, folio) => {
     const stmt = db.prepare(`
       SELECT 
         p.*, 
-        json_group_array(json_object('talla', tp.talla, 'cantidad', tp.cantidad)) as tallas_detalle
+        json_group_array(json_object('talla', tp.talla, 'color', tp.color, 'cantidad', tp.cantidad)) as tallas_detalle
       FROM productos p
       LEFT JOIN tallas_producto tp ON p.folio_producto = tp.folio_producto
       WHERE p.folio_producto = ?
@@ -523,17 +523,18 @@ ipcMain.handle("registrar-entrada-existente", (_event, entrada) => {
     }
     const stmtEntrada = db.prepare(`
       INSERT INTO entradas (
-        fecha_entrada, folio_producto, cantidad_recibida, talla, costo_unitario_proveedor,
+        fecha_entrada, folio_producto, cantidad_recibida, talla, color, costo_unitario_proveedor,
         precio_unitario_base, precio_unitario_promocion, tipo_movimiento,
         responsable_recepcion, observaciones_entrada
       ) VALUES (
-        @fecha_entrada, @folio_producto, @cantidad_recibida, @talla, @costo_unitario_proveedor,
+        @fecha_entrada, @folio_producto, @cantidad_recibida, @talla, @color, @costo_unitario_proveedor,
         @precio_unitario_base, @precio_unitario_promocion, @tipo_movimiento,
         @responsable_recepcion, @observaciones_entrada
       )
     `);
     stmtEntrada.run({
       ...entrada,
+      color: entrada.color || "Único",
       tipo_movimiento: "Reabastecimiento"
     });
     const stmtUpdate = db.prepare(`
@@ -547,15 +548,16 @@ ipcMain.handle("registrar-entrada-existente", (_event, entrada) => {
       folio: entrada.folio_producto
     });
     const stmtTalla = db.prepare(`
-      INSERT INTO tallas_producto (folio_producto, talla, cantidad)
-      VALUES (@folio, @talla, @cantidad)
-      ON CONFLICT(folio_producto, talla) DO UPDATE SET
+      INSERT INTO tallas_producto (folio_producto, talla, color, cantidad)
+      VALUES (@folio, @talla, @color, @cantidad)
+      ON CONFLICT(folio_producto, talla, color) DO UPDATE SET
         cantidad = cantidad + @cantidad,
         fecha_actualizacion = CURRENT_TIMESTAMP
     `);
     stmtTalla.run({
       folio: entrada.folio_producto,
       talla: entrada.talla,
+      color: entrada.color || "Único",
       cantidad: entrada.cantidad_recibida
     });
   });
@@ -570,7 +572,7 @@ ipcMain.handle("registrar-entrada-existente", (_event, entrada) => {
 ipcMain.handle("eliminar-entrada", (_event, id_entrada) => {
   const eliminar = db.transaction(() => {
     const entrada = db.prepare(`
-      SELECT folio_producto, cantidad_recibida, talla, tipo_movimiento
+      SELECT folio_producto, cantidad_recibida, talla, color, tipo_movimiento
       FROM entradas
       WHERE id_entrada = ?
     `).get(id_entrada);
@@ -599,22 +601,23 @@ ipcMain.handle("eliminar-entrada", (_event, id_entrada) => {
       UPDATE tallas_producto
       SET cantidad = cantidad - @cantidad,
           fecha_actualizacion = CURRENT_TIMESTAMP
-      WHERE folio_producto = @folio AND talla = @talla
+      WHERE folio_producto = @folio AND talla = @talla AND color = @color
     `);
     stmtUpdateTalla.run({
       cantidad: entrada.cantidad_recibida,
       folio: entrada.folio_producto,
-      talla: entrada.talla
+      talla: entrada.talla,
+      color: entrada.color || "Único"
     });
     const tallaActual = db.prepare(`
       SELECT cantidad FROM tallas_producto 
-      WHERE folio_producto = ? AND talla = ?
-    `).get(entrada.folio_producto, entrada.talla);
+      WHERE folio_producto = ? AND talla = ? AND color = ?
+    `).get(entrada.folio_producto, entrada.talla, entrada.color || "Único");
     if (tallaActual && tallaActual.cantidad <= 0) {
       db.prepare(`
         DELETE FROM tallas_producto 
-        WHERE folio_producto = ? AND talla = ?
-      `).run(entrada.folio_producto, entrada.talla);
+        WHERE folio_producto = ? AND talla = ? AND color = ?
+      `).run(entrada.folio_producto, entrada.talla, entrada.color || "Único");
     }
     db.prepare("DELETE FROM entradas WHERE id_entrada = ?").run(id_entrada);
   });
@@ -956,7 +959,7 @@ ipcMain.handle("get-productos-disponibles", () => {
     const stmt = db.prepare(`
       SELECT 
         p.*, 
-        json_group_array(json_object('talla', tp.talla, 'cantidad', tp.cantidad)) as tallas_detalle
+        json_group_array(json_object('talla', tp.talla, 'color', tp.color, 'cantidad', tp.cantidad)) as tallas_detalle
       FROM productos p
       LEFT JOIN tallas_producto tp ON p.folio_producto = tp.folio_producto
       WHERE p.stock_actual > 0
@@ -980,6 +983,7 @@ ipcMain.handle("registrar-venta", (_event, datos) => {
     folio_producto,
     cantidad_vendida,
     talla,
+    color,
     precio_unitario_real,
     descuento_aplicado,
     tipo_salida,
@@ -988,25 +992,26 @@ ipcMain.handle("registrar-venta", (_event, datos) => {
     responsable_caja,
     notas
   } = datos;
+  const colorFinal = color || "Único";
   const registrar = db.transaction(() => {
     const producto = db.prepare("SELECT stock_actual FROM productos WHERE folio_producto = ?").get(folio_producto);
     if (!producto) {
       throw new Error("Producto no encontrado.");
     }
-    const tallaInfo = db.prepare(`
+    const varianteInfo = db.prepare(`
       SELECT cantidad FROM tallas_producto 
-      WHERE folio_producto = ? AND talla = ?
-    `).get(folio_producto, talla);
-    if (!tallaInfo || tallaInfo.cantidad < cantidad_vendida) {
-      throw new Error(`Stock insuficiente. Disponible en talla ${talla}: ${(tallaInfo == null ? void 0 : tallaInfo.cantidad) || 0}`);
+      WHERE folio_producto = ? AND talla = ? AND color = ?
+    `).get(folio_producto, talla, colorFinal);
+    if (!varianteInfo || varianteInfo.cantidad < cantidad_vendida) {
+      throw new Error(`Stock insuficiente. Disponible en ${talla} ${colorFinal}: ${(varianteInfo == null ? void 0 : varianteInfo.cantidad) || 0}`);
     }
     const stmtVenta = db.prepare(`
       INSERT INTO ventas (
-        fecha_venta, folio_producto, cantidad_vendida, talla,
+        fecha_venta, folio_producto, cantidad_vendida, talla, color,
         precio_unitario_real, descuento_aplicado, tipo_salida,
         id_cliente, responsable_caja, notas
       ) VALUES (
-        @fecha_venta, @folio_producto, @cantidad_vendida, @talla,
+        @fecha_venta, @folio_producto, @cantidad_vendida, @talla, @color,
         @precio_unitario_real, @descuento_aplicado, @tipo_salida,
         @id_cliente, @responsable_caja, @notas
       )
@@ -1016,6 +1021,7 @@ ipcMain.handle("registrar-venta", (_event, datos) => {
       folio_producto,
       cantidad_vendida,
       talla,
+      color: colorFinal,
       precio_unitario_real,
       descuento_aplicado: descuento_aplicado || 0,
       tipo_salida,
@@ -1036,21 +1042,22 @@ ipcMain.handle("registrar-venta", (_event, datos) => {
       UPDATE tallas_producto
       SET cantidad = cantidad - @cantidad,
           fecha_actualizacion = CURRENT_TIMESTAMP
-      WHERE folio_producto = @folio AND talla = @talla
+      WHERE folio_producto = @folio AND talla = @talla AND color = @color
     `).run({
       cantidad: cantidad_vendida,
       folio: folio_producto,
-      talla
+      talla,
+      color: colorFinal
     });
-    const tallaActual = db.prepare(`
+    const varianteActual = db.prepare(`
       SELECT cantidad FROM tallas_producto 
-      WHERE folio_producto = ? AND talla = ?
-    `).get(folio_producto, talla);
-    if (tallaActual && tallaActual.cantidad <= 0) {
+      WHERE folio_producto = ? AND talla = ? AND color = ?
+    `).get(folio_producto, talla, colorFinal);
+    if (varianteActual && varianteActual.cantidad <= 0) {
       db.prepare(`
         DELETE FROM tallas_producto 
-        WHERE folio_producto = ? AND talla = ?
-      `).run(folio_producto, talla);
+        WHERE folio_producto = ? AND talla = ? AND color = ?
+      `).run(folio_producto, talla, colorFinal);
     }
     if (id_cliente && (tipo_salida === "Crédito" || tipo_salida === "Apartado")) {
       const montoTotal = precio_unitario_real * cantidad_vendida - (descuento_aplicado || 0);
@@ -1913,7 +1920,7 @@ ipcMain.handle("get-productos-por-categoria", (_event, categoria) => {
     const stmt = db.prepare(`
       SELECT 
         p.*, 
-        json_group_array(json_object('talla', tp.talla, 'cantidad', tp.cantidad)) as tallas_detalle,
+        json_group_array(json_object('talla', tp.talla, 'color', tp.color, 'cantidad', tp.cantidad)) as tallas_detalle,
         (SELECT precio_unitario_base FROM entradas WHERE folio_producto = p.folio_producto ORDER BY id_entrada DESC LIMIT 1) as ultimo_precio,
         (SELECT costo_unitario_proveedor FROM entradas WHERE folio_producto = p.folio_producto ORDER BY id_entrada DESC LIMIT 1) as ultimo_costo
       FROM productos p
@@ -1942,6 +1949,7 @@ ipcMain.handle("get-movimientos-inventario-recientes", (_event, limite = 20) => 
         e.folio_producto,
         e.cantidad_recibida as cantidad,
         e.talla,
+        e.color,
         e.costo_unitario_proveedor as costo,
         e.precio_unitario_base as precio,
         e.tipo_movimiento,
@@ -1962,6 +1970,7 @@ ipcMain.handle("get-movimientos-inventario-recientes", (_event, limite = 20) => 
         v.folio_producto,
         v.cantidad_vendida as cantidad,
         v.talla,
+        v.color,
         NULL as costo,
         v.precio_unitario_real as precio,
         v.tipo_salida as tipo_movimiento,
@@ -2166,13 +2175,14 @@ ipcMain.handle("registrar-entrada-multiple-tallas", (_event, datos) => {
     }
     for (const t of tallas) {
       if (t.cantidad <= 0) continue;
+      const colorFinal = t.color || "Único";
       const stmtEntrada = db.prepare(`
         INSERT INTO entradas (
-          fecha_entrada, folio_producto, cantidad_recibida, talla,
+          fecha_entrada, folio_producto, cantidad_recibida, talla, color,
           costo_unitario_proveedor, precio_unitario_base,
           tipo_movimiento, responsable_recepcion, observaciones_entrada
         ) VALUES (
-          @fecha, @folio, @cantidad, @talla,
+          @fecha, @folio, @cantidad, @talla, @color,
           @costo, @precio,
           @tipo, @responsable, @observaciones
         )
@@ -2182,6 +2192,7 @@ ipcMain.handle("registrar-entrada-multiple-tallas", (_event, datos) => {
         folio: folio_producto,
         cantidad: t.cantidad,
         talla: t.talla,
+        color: colorFinal,
         costo: t.costo,
         precio: t.precio,
         tipo: esNuevo ? "Entrada Inicial" : "Reabastecimiento",
@@ -2195,12 +2206,12 @@ ipcMain.handle("registrar-entrada-multiple-tallas", (_event, datos) => {
         WHERE folio_producto = @folio
       `).run({ cantidad: t.cantidad, folio: folio_producto });
       db.prepare(`
-        INSERT INTO tallas_producto (folio_producto, talla, cantidad)
-        VALUES (@folio, @talla, @cantidad)
-        ON CONFLICT(folio_producto, talla) DO UPDATE SET
+        INSERT INTO tallas_producto (folio_producto, talla, color, cantidad)
+        VALUES (@folio, @talla, @color, @cantidad)
+        ON CONFLICT(folio_producto, talla, color) DO UPDATE SET
           cantidad = cantidad + @cantidad,
           fecha_actualizacion = CURRENT_TIMESTAMP
-      `).run({ folio: folio_producto, talla: t.talla, cantidad: t.cantidad });
+      `).run({ folio: folio_producto, talla: t.talla, color: colorFinal, cantidad: t.cantidad });
     }
   });
   try {
@@ -2301,6 +2312,84 @@ ipcMain.handle("get-ventas-recientes", (_event, limite = 15) => {
     return [];
   }
 });
+ipcMain.handle("get-ventas-por-rango", (_event, filtro) => {
+  try {
+    const { fechaInicio, fechaFin, limite = 50 } = filtro;
+    const ventas = db.prepare(`
+      SELECT 
+        v.id_venta,
+        v.fecha_venta,
+        v.folio_producto,
+        v.cantidad_vendida,
+        v.talla,
+        v.color,
+        v.precio_unitario_real,
+        v.descuento_aplicado,
+        v.tipo_salida,
+        p.nombre_producto,
+        p.categoria,
+        c.nombre_completo as cliente
+      FROM ventas v
+      LEFT JOIN productos p ON v.folio_producto = p.folio_producto
+      LEFT JOIN clientes c ON v.id_cliente = c.id_cliente
+      WHERE DATE(v.fecha_venta) >= DATE(?) AND DATE(v.fecha_venta) <= DATE(?)
+      ORDER BY v.fecha_venta DESC
+      LIMIT ?
+    `).all(fechaInicio, fechaFin, limite);
+    const abonos = db.prepare(`
+      SELECT 
+        m.id_movimiento,
+        m.fecha,
+        m.monto,
+        m.tipo_movimiento,
+        m.referencia,
+        c.nombre_completo as cliente
+      FROM movimientos_cliente m
+      LEFT JOIN clientes c ON m.id_cliente = c.id_cliente
+      WHERE lower(m.tipo_movimiento) = 'abono'
+        AND DATE(m.fecha) >= DATE(?) AND DATE(m.fecha) <= DATE(?)
+      ORDER BY m.fecha DESC
+      LIMIT ?
+    `).all(fechaInicio, fechaFin, limite);
+    const ventasFormateadas = ventas.map((v) => ({
+      id: v.id_venta,
+      fecha: v.fecha_venta,
+      tipo_transaccion: "venta",
+      folio_producto: v.folio_producto,
+      nombre_producto: v.nombre_producto,
+      cantidad_vendida: v.cantidad_vendida,
+      talla: v.talla,
+      color: v.color,
+      precio_unitario_real: v.precio_unitario_real,
+      descuento_aplicado: v.descuento_aplicado,
+      tipo_salida: v.tipo_salida,
+      categoria: v.categoria,
+      cliente: v.cliente,
+      total: (v.precio_unitario_real - (v.descuento_aplicado || 0)) * v.cantidad_vendida
+    }));
+    const abonosFormateados = abonos.map((a) => ({
+      id: a.id_movimiento,
+      fecha: a.fecha,
+      tipo_transaccion: "abono",
+      folio_producto: null,
+      nombre_producto: null,
+      cantidad_vendida: null,
+      talla: null,
+      precio_unitario_real: null,
+      descuento_aplicado: null,
+      tipo_salida: "Abono",
+      categoria: null,
+      cliente: a.cliente,
+      referencia: a.referencia,
+      total: a.monto
+    }));
+    const transacciones = [...ventasFormateadas, ...abonosFormateados].sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()).slice(0, limite);
+    return transacciones;
+  } catch (error) {
+    console.error("Error al obtener ventas por rango:", error);
+    return [];
+  }
+});
 ipcMain.handle("get-ventas-hoy", (_event) => {
   try {
     const now = /* @__PURE__ */ new Date();
@@ -2313,6 +2402,7 @@ ipcMain.handle("get-ventas-hoy", (_event) => {
         v.folio_producto,
         v.cantidad_vendida,
         v.talla,
+        v.color,
         v.precio_unitario_real,
         v.descuento_aplicado,
         v.tipo_salida,
@@ -2347,6 +2437,7 @@ ipcMain.handle("get-ventas-hoy", (_event) => {
       nombre_producto: v.nombre_producto,
       cantidad_vendida: v.cantidad_vendida,
       talla: v.talla,
+      color: v.color,
       precio_unitario_real: v.precio_unitario_real,
       descuento_aplicado: v.descuento_aplicado,
       tipo_salida: v.tipo_salida,
@@ -2386,12 +2477,12 @@ ipcMain.handle("get-prendas-prestadas", (_event) => {
         v.folio_producto,
         v.cantidad_vendida,
         v.talla,
+        v.color,
         v.precio_unitario_real,
         v.tipo_salida,
         v.notas,
         p.nombre_producto,
         p.categoria,
-        c.id_cliente,
         c.nombre_completo as cliente,
         c.telefono
       FROM ventas v
@@ -2416,13 +2507,13 @@ ipcMain.handle("get-prendas-apartadas", (_event) => {
         v.folio_producto,
         v.cantidad_vendida,
         v.talla,
+        v.color,
         v.precio_unitario_real,
         v.descuento_aplicado,
         v.tipo_salida,
         v.notas,
         p.nombre_producto,
         p.categoria,
-        c.id_cliente,
         c.nombre_completo as cliente,
         c.telefono,
         c.saldo_pendiente as cliente_saldo_pendiente
@@ -2442,7 +2533,7 @@ ipcMain.handle("get-prendas-apartadas", (_event) => {
       }
     }
     const resultado = [];
-    for (const [idCliente, apartadosCliente] of Object.entries(apartadosPorCliente)) {
+    for (const apartadosCliente of Object.values(apartadosPorCliente)) {
       let totalApartados = 0;
       for (const ap of apartadosCliente) {
         totalApartados += ap.precio_unitario_real * ap.cantidad_vendida - (ap.descuento_aplicado || 0);

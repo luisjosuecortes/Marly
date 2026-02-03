@@ -19,6 +19,7 @@ const TIPOS_SALIDA = ['Venta', 'Crédito', 'Apartado', 'Prestado']
 interface VentaState {
   folio_producto: string
   talla: string
+  color: string
   cantidad_vendida: number | string
   precio_unitario_real: number | string
   descuento_aplicado: number | string
@@ -36,11 +37,12 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
   const [productoEncontrado, setProductoEncontrado] = useState<any>(null)
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [stockDisponible, setStockDisponible] = useState<number>(0)
-  const [tallasDisponibles, setTallasDisponibles] = useState<{ talla: string; cantidad: number }[]>([])
+  const [variantesDisponibles, setVariantesDisponibles] = useState<{ talla: string; color: string; cantidad: number }[]>([])
 
   const [venta, setVenta] = useState<VentaState>({
     folio_producto: folioInicial || '',
     talla: '',
+    color: '',
     cantidad_vendida: 1,
     precio_unitario_real: 0,
     descuento_aplicado: 0,
@@ -94,7 +96,7 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
       if (!venta.folio_producto.trim()) {
         setProductoEncontrado(null)
         setStockDisponible(0)
-        setTallasDisponibles([])
+        setVariantesDisponibles([])
         setVenta(prev => ({ ...prev, precio_unitario_real: 0 }))
         return
       }
@@ -109,7 +111,7 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
 
           // Obtener tallas disponibles
           const tallas = producto.tallas_detalle || []
-          setTallasDisponibles(tallas)
+          setVariantesDisponibles(tallas)
 
           // Si hay una talla seleccionada, actualizar stock disponible
           if (venta.talla) {
@@ -119,7 +121,7 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
         } else {
           setProductoEncontrado(null)
           setStockDisponible(0)
-          setTallasDisponibles([])
+          setVariantesDisponibles([])
         }
       } catch (err) {
         console.error('Error buscando producto:', err)
@@ -139,17 +141,17 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
     }
   }, [venta.folio_producto, folioInicial])
 
-  // Actualizar stock disponible y precio cuando cambia la talla
+  // Actualizar stock disponible y precio cuando cambia la talla/color
   useEffect(() => {
-    if (venta.talla && tallasDisponibles.length > 0 && venta.folio_producto) {
-      const tallaInfo = tallasDisponibles.find(t => t.talla === venta.talla)
-      setStockDisponible(tallaInfo?.cantidad || 0)
+    if (venta.talla && venta.color && variantesDisponibles.length > 0 && venta.folio_producto) {
+      const varianteInfo = variantesDisponibles.find(v => v.talla === venta.talla && v.color === venta.color)
+      setStockDisponible(varianteInfo?.cantidad || 0)
 
       // Ajustar cantidad si excede el stock
-      if (Number(venta.cantidad_vendida) > (tallaInfo?.cantidad || 0)) {
+      if (Number(venta.cantidad_vendida) > (varianteInfo?.cantidad || 0)) {
         setVenta(prev => ({
           ...prev,
-          cantidad_vendida: Math.max(1, tallaInfo?.cantidad || 1)
+          cantidad_vendida: Math.max(1, varianteInfo?.cantidad || 1)
         }))
       }
 
@@ -174,7 +176,7 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
     } else {
       setStockDisponible(0)
     }
-  }, [venta.talla, tallasDisponibles, venta.folio_producto])
+  }, [venta.talla, venta.color, variantesDisponibles, venta.folio_producto])
 
   const manejarCambio = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -347,6 +349,7 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
       setVenta({
         folio_producto: '',
         talla: '',
+        color: '',
         cantidad_vendida: 1,
         precio_unitario_real: 0,
         descuento_aplicado: 0,
@@ -358,7 +361,7 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
       })
       setProductoEncontrado(null)
       setStockDisponible(0)
-      setTallasDisponibles([])
+      setVariantesDisponibles([])
     } catch (err: any) {
       setError(err?.message || 'Error al registrar la venta.')
     } finally {
@@ -366,9 +369,9 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
     }
   }
 
-  const tallasConStock = useMemo(() => {
-    return tallasDisponibles.filter(t => t.cantidad > 0).map(t => t.talla)
-  }, [tallasDisponibles])
+  const variantesConStock = useMemo(() => {
+    return variantesDisponibles.filter(v => v.cantidad > 0)
+  }, [variantesDisponibles])
 
   return (
     <div className="panel-formulario">
@@ -437,24 +440,24 @@ export function FormularioVenta({ alCerrar, alGuardar, folioInicial }: PropsForm
           <>
             <div className="seccion-formulario-limpia">
               <div className="fila-formulario">
-                <div className="grupo-formulario">
-                  <label htmlFor="talla">Talla</label>
+                <div className="grupo-formulario" style={{ flex: 1.5 }}>
+                  <label htmlFor="variante">Talla / Color</label>
                   <select
-                    id="talla"
-                    name="talla"
-                    value={venta.talla}
-                    onChange={manejarCambio}
+                    id="variante"
+                    name="variante"
+                    value={venta.talla && venta.color ? `${venta.talla}|${venta.color}` : ''}
+                    onChange={(e) => {
+                      const [talla, color] = e.target.value.split('|')
+                      setVenta(prev => ({ ...prev, talla: talla || '', color: color || '' }))
+                    }}
                     required
                   >
                     <option value="">Selecciona</option>
-                    {tallasConStock.map((talla) => {
-                      const info = tallasDisponibles.find(t => t.talla === talla)
-                      return (
-                        <option key={talla} value={talla}>
-                          {talla} ({info?.cantidad || 0})
-                        </option>
-                      )
-                    })}
+                    {variantesConStock.map((v) => (
+                      <option key={`${v.talla}|${v.color}`} value={`${v.talla}|${v.color}`}>
+                        {v.talla} - {v.color} ({v.cantidad})
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="grupo-formulario">

@@ -63,6 +63,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
   getPrendasPrestadas: () => ipcRenderer.invoke('get-prendas-prestadas'),
   procesarDevolucionPrestamo: (id_venta: number) => ipcRenderer.invoke('procesar-devolucion-prestamo', id_venta),
   getVentasRecientes: (limite?: number) => ipcRenderer.invoke('get-ventas-recientes', limite || 15),
+  getVentasPorRango: (filtro: { fechaInicio: string, fechaFin: string, limite?: number }) => ipcRenderer.invoke('get-ventas-por-rango', filtro),
   getVentasComparativas: (params: { tipo: 'mes' | 'semana' | 'anio', periodos: string[] }) => ipcRenderer.invoke('get-ventas-comparativas', params),
   getVentasProductosComparativas: (params: { productos: string[], tipo: 'mes' | 'semana' | 'anio' }) => ipcRenderer.invoke('get-ventas-productos-comparativas', params),
   getTopProductosVendidos: (limit?: number) => ipcRenderer.invoke('get-top-productos-vendidos', limit || 5),

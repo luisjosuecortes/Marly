@@ -61,6 +61,7 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
   getPrendasPrestadas: () => electron.ipcRenderer.invoke("get-prendas-prestadas"),
   procesarDevolucionPrestamo: (id_venta) => electron.ipcRenderer.invoke("procesar-devolucion-prestamo", id_venta),
   getVentasRecientes: (limite) => electron.ipcRenderer.invoke("get-ventas-recientes", limite || 15),
+  getVentasPorRango: (filtro) => electron.ipcRenderer.invoke("get-ventas-por-rango", filtro),
   getVentasComparativas: (params) => electron.ipcRenderer.invoke("get-ventas-comparativas", params),
   getVentasProductosComparativas: (params) => electron.ipcRenderer.invoke("get-ventas-productos-comparativas", params),
   getTopProductosVendidos: (limit) => electron.ipcRenderer.invoke("get-top-productos-vendidos", limit || 5),

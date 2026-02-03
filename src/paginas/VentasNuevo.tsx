@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { DollarSign, ShoppingBag, Clock, User, ChevronDown, ChevronUp, History, Package, Search, RotateCcw, Store, Wallet, Banknote } from 'lucide-react'
+import { DollarSign, ShoppingBag, Clock, User, ChevronDown, ChevronUp, History, Package, Search, RotateCcw, Store, Wallet, Banknote, Calendar } from 'lucide-react'
 import { FormularioVenta } from '../componentes/FormularioVenta/FormularioVenta'
 import { useProductos } from '../hooks/useProductos'
 import { VistaClientes } from '../componentes/VistaClientes'
@@ -20,6 +20,7 @@ interface TransaccionHoy {
     nombre_producto: string | null
     cantidad_vendida: number | null
     talla: string | null
+    color: string | null
     precio_unitario_real: number | null
     descuento_aplicado: number | null
     tipo_salida: string
@@ -58,7 +59,12 @@ export function VentasNuevo() {
     const [prendasPrestadas, setPrendasPrestadas] = useState<any[]>([])
     const [prendasApartadas, setPrendasApartadas] = useState<any[]>([])
     const [clientesConSaldo, setClientesConSaldo] = useState<any[]>([])
-    const [refrescando, setRefrescando] = useState(false)
+    const [_refrescando, setRefrescando] = useState(false)
+    const [fechaFiltro, setFechaFiltro] = useState<string>(() => {
+        const hoy = new Date()
+        return `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
+    })
+    const [mostrarSelectorFecha, setMostrarSelectorFecha] = useState(false)
     const [cambio, setCambio] = useState<number>(() => {
         // Cargar cambio guardado de localStorage
         const cambioGuardado = localStorage.getItem('marly_cambio_caja')
@@ -101,9 +107,10 @@ export function VentasNuevo() {
     const cargarDatos = async () => {
         try {
             setRefrescando(true)
+
             const [kpisData, transaccionesData, prestamosData, apartadosData, clientesSaldoData] = await Promise.all([
-                window.ipcRenderer.invoke('get-ventas-kpis-hoy'),
-                window.ipcRenderer.invoke('get-ventas-hoy'),
+                window.ipcRenderer.invoke('get-ventas-kpis-hoy'), // KPIs siempre del día actual
+                window.ipcRenderer.invoke('get-ventas-por-rango', { fechaInicio: fechaFiltro, fechaFin: fechaFiltro, limite: 100 }),
                 window.ipcRenderer.invoke('get-prendas-prestadas'),
                 window.ipcRenderer.invoke('get-prendas-apartadas'),
                 window.ipcRenderer.invoke('get-clientes-con-saldo')
@@ -131,7 +138,7 @@ export function VentasNuevo() {
 
         window.addEventListener('ventas-actualizadas', handleActualizacion)
         return () => window.removeEventListener('ventas-actualizadas', handleActualizacion)
-    }, [])
+    }, [fechaFiltro])
 
     // Guardar cambio en localStorage cuando cambie
     useEffect(() => {
@@ -408,12 +415,49 @@ export function VentasNuevo() {
                         </div>
                     </div>
 
-                    {/* Ventas de Hoy - RIGHT (Big) */}
+                    {/* Ventas del Día - RIGHT (Big) */}
                     <div className="panel-recientes">
-                        <h2 className="panel-titulo">
-                            <Clock size={18} />
-                            Ventas de Hoy
-                        </h2>
+                        <div className="panel-header-ventas">
+                            <h2 className="panel-titulo">
+                                <Clock size={18} />
+                                {fechaFiltro === new Date().toISOString().split('T')[0]
+                                    ? 'Ventas de Hoy'
+                                    : `Ventas del ${new Date(fechaFiltro + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                                }
+                            </h2>
+                            <div className="filtro-fecha-ventas">
+                                <button
+                                    className={`btn-fecha-ventas ${mostrarSelectorFecha ? 'activo' : ''}`}
+                                    onClick={() => setMostrarSelectorFecha(!mostrarSelectorFecha)}
+                                >
+                                    <Calendar size={16} />
+                                </button>
+                                {mostrarSelectorFecha && (
+                                    <div className="dropdown-fecha-ventas">
+                                        <input
+                                            type="date"
+                                            value={fechaFiltro}
+                                            onChange={(e) => {
+                                                setFechaFiltro(e.target.value)
+                                                setMostrarSelectorFecha(false)
+                                            }}
+                                            max={new Date().toISOString().split('T')[0]}
+                                            className="input-fecha-ventas"
+                                        />
+                                        <button
+                                            className="btn-hoy-ventas"
+                                            onClick={() => {
+                                                const hoy = new Date()
+                                                setFechaFiltro(`${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`)
+                                                setMostrarSelectorFecha(false)
+                                            }}
+                                        >
+                                            Hoy
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                         <div className="lista-recientes">
                             {transaccionesHoy.length === 0 ? (
                                 <div className="sin-ventas">
@@ -456,6 +500,8 @@ export function VentasNuevo() {
                                                     </div>
                                                     <div className="venta-card__detalles">
                                                         {trans.cliente && <span className="venta-card__cliente"><User size={12} /> {trans.cliente}</span>}
+                                                        {trans.talla && <span className="venta-card__talla">T: {trans.talla}</span>}
+                                                        {trans.color && trans.color !== 'Único' && <span className="venta-card__color" style={{ marginLeft: '8px' }}>C: {trans.color}</span>}
                                                         {trans.referencia && <span className="venta-card__referencia">{trans.referencia}</span>}
                                                     </div>
                                                 </>
@@ -505,6 +551,7 @@ export function VentasNuevo() {
                                             <span className="prestamo-nombre">{prestamo.nombre_producto || prestamo.folio_producto}</span>
                                             <div className="prestamo-tags">
                                                 <span className="prestamo-tag">{prestamo.talla}</span>
+                                                {prestamo.color && prestamo.color !== 'Único' && <span className="prestamo-tag">{prestamo.color}</span>}
                                                 <span className="prestamo-tag">{prestamo.cantidad_vendida} ud</span>
                                             </div>
                                         </div>
